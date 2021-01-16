@@ -1,0 +1,271 @@
+---
+output: word_document
+bibliography: /home/xiang/Documents/Bibliography/seahorse.bib
+---
+
+Bayesian hierarchical modeling for Seahorse extracellular flux oxygen consumption rate data analysis
+
+Xiang Zhang, 
+Taolin Yuan, 
+Keijer Jaap,
+Vincent C. J. de Boer
+
+Human and Animal Physiology, Wageningen University, De Elst 1, 6708 WD Wageningen, The Netherlands
+
+# Abstract
+
+Mitochondrial dysfunction is involved in many complex diseases. 
+Efficient and accurate evaluation of mitochondrial functionality is crucial for understanding pathology as well as facilitating novel therapeutic developments. 
+As a reliable platform, Seahorse extracellular flux (XF) analyzer is widely used for measuring mitochondrial oxygen consumption rate (OCR) in living cells. 
+A hidden feature of Seahorse XF OCR data is that it has a complex data structure, caused by nesting and crossing between multiple factors. 
+Surprisingly, statistical analysis of Seahorse XF data has not received sufficient attention, and current methods completely ignore the complex data structure, impairing the robustness of statistical inference. 
+To rigorously incorporate the complex structure into data analysis, here we developed a Bayesian hierarchical modeling framework and demonstrated its applicability for analyzing Seahorse XF OCR data with two in-house experimental data sets. 
+We showed that our approach can propagate uncertainty in the OCR measurements into the posterior estimation of bioenergetic measures, and is flexible to be applied to analyze experimental data with various experimental designs and sample sizes. 
+
+# Introduction
+
+Mitochondria are double-membrane organelles that are central hubs in regulating energy generation and partitioning. 
+Since defects in mitochondrial function have been found to be involved in cardiovascular diseases [@Ballinger2005], type II diabetes [@Szendroedi2011], neurodegenerative disease [@Johri2012] and cancer [@Erez2015], restoring mitochondrial function is emerging to be a therapeutic target for common diseases [@Murphy2018]. 
+
+Mitochondria produce energy primarily by transferring electrons along the electron transport chain (ETC) on the inner membrane. 
+Along the ETC, there are four complexes (including complex I, II, III and IV), building up a proton gradient that is ultimately used by ATP synthase to generate ATP. 
+Since electrons are primarily accepted by O~2~ to produce H~2~O, the activity of ETC can be assessed by measuring oxygen consumption rate (OCR). 
+As a reliable and efficient platform, Seahorse XF analyzer is a multiwell plate based respirometry assay that is widely used to quantify OCR in living cells [@Wu2007]. 
+Typically, the seahorse XF analyzer measures the OCR of cells in a 96-well plate under different ETC perturbation scenarios, used for assessing mitochondrial functionality such as maximal respiration, leak respiration and ATP-linked respiration. 
+Seahorse XF Cell Mito Stress Test consists of four phases including an initial phase, followed by three consecutive injections, including oligomycin, FCCP (carbonyl cyanide-4-(trifluoromethoxy)phenylhydrazone) and a mixture of rotenone and antimycin A. 
+In the initial phase, no compound is injected and ETC is not perturbed. 
+Once oligomycin is injected in the assay, proton translocation through ATP synthase is blocked, leading to a reduction in OCR. 
+Next, injection of FCCP allows protons to move into the mitochondrial matrix independent of the ATP synthase, pushing the oxygen consumption to the maximum level. 
+In the end, a mixture of rotenone and antimycin A is injected to inhibit complex I and III, shutting down mitochondrial respiration.  
+
+A standard Seahorse run includes three measurement cycles for each phase. 
+Every measurement cycle starts by lowering the cartridge and creating a temporary semi-closed 7 $\mu$L chamber [@Gerencser2009]. 
+During a measurement cycle, fluorescent oxygen sensors capture oxygen concentration changes in the chamber and output OCR. 
+The Seahorse XF analyzer measures OCR in tens to hundreds of thousands of cells per well and typically requires 4–5 replicate wells per experimental group [@Artyomov2020].
+A single 96-well plate can contain multiple experimental groups. 
+Since measurements are nested within phases, phases are crossed with wells, and wells are nested in experimental groups, a very complex structure is inherently embedded in the Seahorse XF OCR data. 
+Surprisingly, current Seahorse XF data analyses most often ignore this complex structure, and by default, data sets are often chopped into subgroups followed by performing ANOVA-like statistical tests. 
+Other Seahorse XF data analysis tools such as OCR-Stats [@Yepez2018], SHORE [@Nicholas2017] and Bioenergetic Health Index [@Chacko2014] also do not take the complexity of the data structure into account. 
+
+A direct and rigorous way to incorporate the complex structure into data analysis is to use hierarchical modeling. 
+Hierarchical models have been extensively developed for analyzing gene expression data  [@Robinson2010a;@Love2014a]. 
+Here we developed a Bayesian hierarchical modeling framework for the Seahorse XF OCR data. 
+Our modeling framework is based on a fully Bayesian approach due to its flexibility and convenience for constructing the hierarchical models. 
+We used two in-house research cases to demonstrate the applicability of our approach analyzing Seahorse XF OCR data. 
+
+# Method
+
+## Cell culture
+
+Fibroblasts from controls and patients etc.
+
+## Searhorse extracellular flux analysis
+
+Cells were plated the day before the assay in 96 well plates etc…
+
+## Cell number quantification
+
+In both example studies, after Seahorse assays, cells in plate were stained with 4 $\mu$M of 2'-(4-ethoxyphenyl)-5-(4-methyl-1-piperazinyl)-2,5'-bi-1H-benzimidazole trihydrochloride trihydrate (Hoechst 33342, #B2261, Sigma-Aldrich) dissolved in assay medium, for 1 hr at 37°C non-CO 2 incubator. 
+Images were taken by Cytation 1 Imaging Reader (BioTek) and cell number was determined by ImageJ 1.52.
+
+## Case study 1
+
+In the first study, fibroblast cells derived from a healthy subject were cultured in galactose exposure medium. 
+A SIRT5 inhibitor, DK104e, or the control counterpart, DK104e[O] was administrated into the cell culture. 
+Fibroblast treated with DMSO was used as the control. 
+In this experiment, four dosages (10 $\mu$M, 20 $\mu$M, 60 $\mu$M and 70 $\mu$M) were used. 
+Respiration of fibroblasts was measured using a Seahorse XFe96 Extracellular Flux Analyzer and a Mito Stress test was performed by following the manufacturer’s protocols. 
+
+During the quality control, we removed three wells (2 derived from 10 $\mu$M DK104e[O] group and 1 from DMSO group) due to negative OCR values. 
+After quality control, the number of wells that contain cells treated by 10 $\mu$M, 20 $\mu$M, 60 $\mu$M and 70 $\mu$M DK104e were 10, 10, 10 and 9, respectively. 
+Regarding DK104e[O], the number of wells that correspond to 10 $\mu$M, 20 $\mu$M, 60 $\mu$M and 70 $\mu$M were 8, 10, 9 and 9. 
+There are 11 wells in which fibroblasts were treated with DMSO. 
+
+## Case study 2
+
+In the second study, fibroblast cells derived from four healthy subjects and two patients with two homozygous loss-of-function variants in *SIRT5* were used for Seahorse XF analysis. 
+One patient has a missense variant (c.340C>A, NM_012241.3) which leads to a proline114 substitution to threonine (P114T) in the SIRT5 protein. 
+The other patient has missense mutation (c.382C>G, NM_012241.3) resulting in leucine128 to valine change (L128V). 
+In this experiment, two injections were used. 
+In particular, 1 $\mu$M oligomycin (#O4876, Sigma-Aldrich) and a mixture of 2.5 $\mu$M antimycin (#A8674, Sigma-Aldrich) and 1.25 $\mu$M rotenone (#R8875, Sigma-Aldrich). 
+
+For every fibroblast cell line derived from healthy controls, 8 replicate wells were used for galactose exposure and 7 replicate wells were used for glucose exposure. 
+For each patient-derived fibroblast cell line, 8 replicate wells were used for galactose and glucose exposure, respectively.   
+
+## Implementation details
+
+The Bayesian hierarchical models were implemented in Stan (version 2.19.3) [@Carpenter2017]. 
+We fitted the model by running Hamiltonian Markov Chain Monte Carlo. 
+We ran four Markov chains with 2000 iterations in each chain. 
+Results were presented with the posterior mean with 95% credible interval. 
+The code can be found at https://github.com/XiangZhangSC/seahorse
+
+## Calculation of bioenergetic measures
+
+Based on OCR (per 1000 cells), we calculated various bioenergetic measures, such as basal respiration, proton leak, ATP-linked respiration, spare respiratory capacity and maximal respiration.
+These bioenergetic measures are defined as below. 
+
+$$\text{Basal respiration} = \text{OCR}_\text{per 1k cells, initial} - \text{OCR}_\text{per 1k cells, rotenone}$$
+$$\text{ATP-linked respiration} = \text{OCR}_\text{per 1k cells, initial} - \text{OCR}_\text{per 1k cells, oligomycin}$$
+$$\text{Proton leak} = \text{OCR}_\text{per 1k cells, oligomycin} - \text{OCR}_\text{per 1k cells, rotenone}$$
+$$\text{Spare respiratory capacity} = \text{OCR}_\text{per 1k cells, FCCP} - \text{OCR}_\text{per 1k cells, initial}$$
+$$\text{Maximal respiration} = \text{OCR}_\text{per 1k cells, FCCP} - \text{OCR}_\text{per 1k cells, rotenone}$$
+
+# Results
+
+## Bayesian hierarchical modeling framework for Seahorse OCR data analysis
+
+In this study, we developed a Bayesian hierarchical modeling framework for the Seahorse XF OCR data. 
+We applied a fully Bayesian approach due to its flexibility and convenience for constructing the hierarchical models. 
+The mathematical description of our Bayesian hierarchical modeling framework is shown below:
+
+$$ \text{OCR}_\text{obs}\text{[i]} \sim \text{Lognormal( logOCR}_\text{true}\text{[W[i],I[i]]}, \text{logOCR}_\text{se}\text{[W[i],I[i]])}$$
+
+$$\text{exp(logOCR}_\text{true}\text{[W[i],I[i]])} = \text{OCR}_\text{per 1k cells}\text{[G[i], I[i]]} \times \text{N}_\text{cells}\text{[W[i]]}$$
+
+$$\text{OCR}_\text{per 1k cells}\text{[G[i], I[i]]} \sim \text{Normal}(\mu\text{[i]}, \sigma\text{)} $$
+
+$$\mu\text{[i]} = \text{Regression model depending on the experimental design}$$
+
+$$\sigma \sim \text{Exponential(1)}$$
+
+$$\text{logOCR}_\text{se}\text{[i]} \sim \text{prior distribution}$$
+
+In Equation 6, we used a lognormal distribution with the true OCR value at the log scale ($\text{logOCR}_\text{true}$) and the measurement uncertainty (also at the log scale, $\text{logOCR}_\text{se}$) to model each observed OCR value ($\text{OCR}_\text{obs}$), because OCR values must be positive. 
+$\text{OCR}_\text{obs}$ is a vector of length $\text{N}_\text{wells} \times \text{N}_\text{injections} \times \text{N}_\text{Measurement}$, where $\text{N}_\text{wells}$, $\text{N}_\text{injections}$ and $\text{N}_\text{Measurement}$ are number of wells, injections and measurement cycles, respectively. 
+The $\text{logOCR}_\text{true}$ and $\text{logOCR}_\text{se}$ are matrices of $\text{N}_\text{wells}$ rows and $\text{N}_\text{injections}$ columns. 
+
+In Equation 7, we modeled the true OCR value as a function of the cell number. 
+$\text{N}_\text{cells}$ is a vector of length $\text{N}_\text{wells}$, and every entry represents the cell number in that well. 
+$\text{OCR}_\text{per 1k cells}$ is a matrix with $\text{N}_\text{Groups}$ rows and $\text{N}_\text{injections}$ columns. 
+Every entry of this matrix represents OCR value per 1000 cells that received the same treatment (or from the same group) and injection. 
+
+In Equation 8 and 9, we applied a linear regression model in which the OCR value per 1000 cells was used as the response (or dependent) variable to estimate effect sizes of various factors (e.g. treatment, group). 
+Since experimental design and plate set-up are not uniform between studies, regression models need to be constructed accordingly. 
+The parameter $\sigma$ represented the residual that cannot be explained by the regression model. 
+We used a generic the prior distribution ($\text{Exponential(1)}$) for $\sigma$.
+
+In this study, since our case studies focused on human fibroblast cells, we used a informative prior distribution for $\text{logOCR}_\text{se}$. 
+We estimated the prior distribution based on the Seahorse XF OCR data in OCR-stats [@Yepez2018] by running the fitdistr function built in the MASS r package. 
+As a result, the $\text{Lognormal(-3.11, 0.81)}$ was used as the prior distribution for $\text{logOCR}_\text{se}$. 
+
+## Case studies
+
+To demonstrate how our Bayesian hierarchical modeling approach can be used for Seahorse XF OCR data analysis, we used two in-house generated data sets that investigate mitochondrial function alteration due to either treatment of a novel inhibitor targeting SIRT5 (case 1) or a loss-of-function mutation in *SIRT5*. 
+
+### Case study 1: Factorial design with no biological replicates
+
+In the first case study, we assessed if the SIRT5 inhibitor DK104e could lead to mitochondrial dysfunction in human fibroblasts.
+This study used a factorial design with two factors: treatment and injection. 
+In addition, a dosage escalation was applied in this study. 
+Here, we treated the dosage factor as a continuous variable. 
+Based on the experimental design of this study, we composed the regression model as:
+
+$$\mu\text{[i]} = \beta_0 + \beta_T\text{[T[i]]} + \beta_D \text{D[i]} + \beta_I\text{[I[i]]}$$
+
+$\beta_0$ is the overall average of OCR per 1000 cells in all wells and across injections. 
+Based on the OCR-stats data, we estimated the prior distribution for $\beta_0$ as $\text{Lognormal(0.54, 0.32)}$. 
+$\beta_T$ is the deviation in OCR due to treatment, DK104e (SIRT5 inhibitor) or DK104e[O] ("placebo"). 
+$\beta_D$ is the effect when the dosage increases 10$\mu$M. 
+We assume that the higher dosage the larger effect will be. 
+$\beta_I$ is the deviation in OCR due to injection, including initial, oligomycin, FCCP and rotenone/antimycin A. 
+
+Our analysis showed that in DMSO-treated fibroblasts, the median basal respiration, ATP-linked respiration, proton leak, spare respiratory capacity and maximal respiration were 3.23 [95% credible interval 30.09, 3.34] pmol/min, 3.14 [2.99, 3.25] pmol/min, 0.0955 [0.0258, 0.158] pmol/min, -0.890 [-1.05, -0.705] pmol/min, and 2.34 [2.22, 2.48] pmol/min, respectively. 
+In general, treating fibroblasts with 10-60 $\mu$M SIRT5 inhibitor Dk104e or "placebo" Dk104e[O] resulted in similar basal respiration, ATP-linked respiration, proton leak, spare respiratory capacity and maximal respiration. 
+We found that the proton leak in 10 $\mu$M Dk104e treated fibroblasts was 0.114 [0.0143, 0.203] pmol/min, whereas in the "placebo" group (10 $\mu$M Dk104[O]) that value was 0.368 [0.101, 0.469] pmol/min. 
+However, the difference was not statistically significant (mean difference -0.255 [-0.387, 0.0185]) (Figure 1). 
+In contrast, we found that at 60 $\mu$M the proton leak in Dk104e treated fibroblasts was 0.144 [0.113, 0.181] pmol/min, 0.0736 [0.00898, 0.143] pmol/min higher than the proton leak (0.0711 [0.0124, 0.128]) in Dk104e[O] treated fibroblasts (Figure 1). 
+At 70 $\mu$M, Dk104e treated fibroblasts showed increasing in basal respiration (1.45 [1.19, 1.68] pmol/min), ATP-linked respiration (0.793 [0.537, 1.08]), proton leak (0.662 [0.446, 0.784] pmol/min) and maximal respiration (1.09 [0.775, 1.40] pmol/min) (Figure 1). 
+
+![Figure 1 Posterior distributions of basal respiration, ATP-linked respiration,  proton leak, spare respiratory capacity and maximal respiration in galactose-cultured fibroblasts treated with either SIRT5 inhibitor Dk104e or Dk104e$\text{[O]}$](./inhibitor_study_respiration.jpg)
+
+## Case study 2: Split-plot design
+
+The second study was an experiment in which fibroblasts derived from two patients with *SIRT5* mutations were compared to fibroblasts derived from four healthy individuals. 
+The goal of this study was to identify mitochondrial dysfunction in the *SIRT5* mutation carriers. 
+In this study, subjects were nested in group factor (healthy control or patient). 
+Meanwhile, treatment factor (galactose and glucose) and injection factor were crossed with subjects. 
+With both nested and crossed factors, this experiment essentially has a split-plot design. 
+The split plot design was originally invented in agricultural experiments in order to deal randomization of hard-to-change factors. 
+Accordingly, we specified the regression model as:
+
+$$\mu\text{[i]} = \beta_0 + 
+\beta_G\text{[G[i]]} + 
+\beta_T\text{[T[i]]} + 
+\beta_I\text{[I[i]]} + 
+\beta_{IT}\text{[I[i],T[i]]} + 
+\beta_{GT}\text{[G[i],T[i]]} + 
+\beta_{GI}\text{[G[i],I[i]]} + 
+\beta_S\text{[S[i]]}$$
+
+$\beta_0$ is the overall average OCR per 1000 cells in all wells and across injections. 
+As before, we used $\text{Lognormal(0.54, 0.32)}$ as the prior distribution. 
+$\beta_G$, $\beta_T$ and $\beta_I$ are OCR deflections due to group (healthy or patient), treatment (glucose or galactose), and injections, respectively. 
+To take into account the fact that cell lines derived from the same subject were used for all levels of treatments and injections, $\beta_S$ is used to estimate the deflection due to subject factor. 
+The interaction term, $\beta_{IT}$ denotes whether deflection due to injections is dependent on treatment factor. 
+Similarly, the other two interaction terms, $\beta_{GT}$ and $\beta_{GI}$ denote whether deflection caused by treatment and injection factor are dependent on group factor. 
+
+Our analysis showed that on average 1000 fibroblasts treated with galactose had higher basal respiration (1.31 [0.801, 1.86] pmol/min) and ATP-linked respiration (1.17 [0.649, 1.71] pmol/min) than 1000 glucose-treated fibroblasts. 
+In contrast, proton leak was similar in galactose or glucose-treated fibroblasts (median difference 0.149 [-0.371, 0.687]). 
+Interestingly, our analysis showed that on average the basal respiration of galactose-treated fibroblasts (1000 cells) was 3.75 [3.33, 4.17] pmol/min in healthy controls and 4.60 [4.07, 5.13] pmol/min in patients with *SIRT5* mutations. 
+In glucose-treated fibroblasts, the basal respiration of healthy controls was 2.42 [2.01, 2.84] pmol/min, whereas the basal respiration of patient-derived fibroblasts was 3.29 [2.75, 3.79] pmol/min. 
+The basal respiration difference between patients and controls is 0.861 [0.293, 1.41] and was independent of treatment of glucose or galactose. 
+The ATP-linked respiration in galactose-treated fibroblasts derived from healthy controls and patients with *SIRT5* mutations were 3.35 [2.94, 3.76] and 4.02 [3.47, 4.54], respectively. 
+In glucose-treated fibroblasts, the ATP-linked respiration in healthy controls and patients were 2.17 [1.75, 2.59] pmol/min and 2.85 [2.29, 3.38] pmol/min, respectively. 
+Similar to basal respiration, the difference in ATP-linked respiration between patients and controls was 0.682 [0.0998, 1.24] pmol/min, and this difference was independent of treatment of glucose or galactose. 
+The proton leak of galactose-treated fibroblasts in healthy controls was 0.404 [-0.0152, 0.819] pmol/min whereas in patients the proton leak was 0.579 [0.0657, 1.12] pmol/min. 
+In glucose-treated fibroblasts, healthy controls had proton leak 0.258 [-0.164, 0.665] pmol/min, and patients had proton leak 0.434 [-0.0804, 0.962] pmol/min. 
+The proton leak difference between patients and controls was 0.176 [-0.363, 0.736] pmol/min and was independent of treatment of glucose or galactose.  
+
+![Figure 2 Posterior distributions of basal respiration, ATP-linked respiration and proton leak of galactose or glucose-treated fibroblasts derived from in healthy subjects and patients with loss-of-function mutations in *SIRT5*](./respiration_sirt5_mutation_study.jpg)
+
+# Discussion
+
+Although Seahorse XF analyzer is widely used in bioenergetic profiling, its data analysis has not received sufficient attention [@Yepez2018]. 
+In the current study, we developed a Bayesian hierarchical modeling approach, which accounts for the complex structure of Seahorse OCR data. 
+The complexity of Seahorse OCR data is due to the fact that Seahorse XF measurements are nested within injections, injections are crossed with wells, and wells are nested in experimental groups. 
+The data structure can be even more complex when a study has a complicated experimental design with multiple factors. 
+
+From our perspective, there are three levels including 1) measurement, 2) well and 3) group in the Seahorse XF OCR data. 
+At the lowest level, the measurement level, the variation within an injection phase are assumed to be caused by measurement error. 
+This is because there are multiple measurement cycles during each injection phase, and every measurement cycle starts with a mix and wait steps to ensure the same baseline of cell values, cell physiology should not substantially change within an injection phase.
+Since OCR data must be positive values, we used the lognormal distribution as the likelihood function. 
+The same likelihood function was also used by OCR-Stats [@Yepez2018]. 
+In the first example, we found that on average the uncertainty in FCCP-related measurements (0.147 [0.0443,0.270]) was larger than initial (0.0707 [0.0227,0.176]), oligomycin (0.0923 [0.0257,0.403]) and rotenone/antimycin A (0.0972 [0.0242,0.519]) (Figure S1). 
+
+![Figure S1 Uncertainty in OCR measurements per scenario in the example 1](./measurement_error_inhibitor_study.jpg)
+
+The variable OCR values could indicate that FCCP possibly induces an unstable physiologic state, possibly due to the off-target effects. 
+It has been proposed that other mitochondrial uncouplers such as BAM15 [@Kenwood2014] would have less off-target effects and would thus generate a more stable cellular physiologic state. 
+
+In the second example, we found that on average the measurement uncertainty in initial, oligomycin and rotenone/antimycin A were 0.0581 [0.0135, 0.221], 0.0760 [0.0220, 0.262] and 0.0798 [0.0208, 0.301], respectively. 
+These measurement uncertainties were comparable between these two case studies, indicating that OCR values were stable in initial, oligomycin and rotenone/antimycin A scenario. 
+
+![Figure S2 Uncertainty in OCR measurements per scenario in the example 2](./measurement_error_mutation_study.jpg)
+
+The second level of Seahorse OCR data is the well.  
+Since the same cell lines with the same treatment were seeded in multiple wells, these replicated wells (also called pseudo replication) essentially reflect the same biological signals. 
+In other words, these replicate wells should give the same OCR value if the number of cells are identical.
+Treating these replicated wells as biological replicates in t test or ANOVA (analysis of variance) deviates from the assumptions that are associated with those procedures, making these statistical analysis not suitable for experimental data based on a single cell line. 
+We notice that a "workaround" is to treat replicated experiments on different days or on different plates as a biological replication. 
+However, this "workaround" does not solve the issue that there is no biological replicate. 
+In fact, this issue is not unique to Seahorse OCR data analysis, it also happens to most if not all cell line-based studies. 
+Our Bayesian hierarchical modeling approach provides a way to properly handle this type of experimental data. 
+However, without biological replicates we still cannot generalize what we observed in one cell line to other cells. 
+Furthermore, since the number of cells are not exactly the same in replicated wells, it is common to see OCR values differ among the pseudo replication [@Little2020]. 
+To adjust for the cell number variation, our hierarchical model explicitly incorporated the cell number information of each wel0l (Equation 7) and estimated the $\text{OCR}_\text{per 1k cells}$, which represented the OCR value of 1000 cells.
+
+The last level of Seahorse OCR data is the experimental group. 
+$\text{OCR}_\text{per 1k cells}$ reflects OCR values that are determined by a particular cell line, a particular treatment and a particular injection. 
+The cell line, treatment and their combination are viewed as groups. 
+To find out the difference between groups, regression analysis of $\text{OCR}_\text{per 1k cells}$ needs to be performed.
+In our case studies, we constructed two different regression models to handle Seahorse XF data with factorial and split-plot designs. 
+
+Our Bayesian hierarchical modeling approach has several advantages. 
+The first advantage of our approach is that the uncertainty in the OCR measurements was incorporated in the posterior estimation of bioenergetic measures. 
+The second advantage is that our approach is flexible and can be adapted to different experimental designs. 
+The third advantage is that our approach can work with any sample size and unbalanced group sizes. 
+For example, case study 2 has four biological replicates in the control group whereas two in the patient group. 
+This is especially useful for the study that is challenging to acquire biological samples. 
+
+# Reference
