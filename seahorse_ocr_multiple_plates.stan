@@ -8,7 +8,7 @@ data {
   int<lower=0> N_lev3; // Number of combinations Cell and Injection
   int<lower=1,upper=N_lev3> id3[N_lev2];
   int<lower=0> N_lev4; // Number of combinations Plate and Injection
-  int<lower=1,upper=N_lev4> id4[N_obs]; 
+  int<lower=1,upper=N_lev4> id4[N_obs];
   vector<lower=0>[N_lev1] N_cell;
 }
 transformed data {
@@ -39,6 +39,7 @@ transformed parameters {
   mu_OCR_per_1k[8] = patient_OCR_per_1k[1]; // rotenone
 }
 model {
+  
   sdlog_OCR ~ lognormal( -3.23, 0.79 );
   sigma_well ~ lognormal( -1.62, 0.53 );
   sigma_plate ~ lognormal( -1.18, 0.05 );
@@ -55,6 +56,7 @@ model {
   control_OCR_per_1k[4] ~ lognormal( 1.26, 0.30 );
   patient_OCR_per_1k[4] ~ lognormal( 1.26, 0.30 );
   
+  
   // prior for rotenone phase
   control_OCR_per_1k[1] ~ lognormal( -0.74, 0.32 );
   patient_OCR_per_1k[1] ~ lognormal( -0.74, 0.32 );
@@ -67,6 +69,7 @@ model {
     mulog_OCR[j] ~ normal(log(OCR_per_1k[id2[j]] * N_cell_1k[j]), sigma_well[id2[j]]);
   }
   
+  // likelihood 
   for ( i in 1:N_obs ) {
     OCR_obs[i] ~ lognormal( mulog_OCR[id1[i]], sdlog_OCR[id4[i]] );
   }
