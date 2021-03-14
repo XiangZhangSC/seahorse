@@ -1,17 +1,18 @@
 ---
 output: word_document
 bibliography: /home/xiang/Documents/Bibliography/seahorse.bib
-csl: plos-one.csl
+csl: scientific-reports.csl
 ---
 
 OCRbayes: A Bayesian hierarchical modeling framework for Seahorse extracellular flux oxygen consumption rate data analysis
 
-Xiang Zhang, 
-Taolin Yuan, 
-Keijer Jaap,
-Vincent C. J. de Boer
+Xiang Zhang^1,2,\*^, 
+Taolin Yuan^2^, 
+Jaap Keijer^2^,
+Vincent C. J. de Boer^2,\*^
 
-Human and Animal Physiology, Wageningen University, De Elst 1, 6708 WD Wageningen, The Netherlands
+1. Theoretical Biology and Bioinformatics, Utrecht University, Padualaan 8, 3584 CH Utrecht, The Netherlands
+2. Human and Animal Physiology, Wageningen University, De Elst 1, 6708 WD Wageningen, The Netherlands
 
 # Abstract
 
@@ -21,67 +22,95 @@ As a popular platform, Seahorse extracellular flux (XF) analyzer is widely used 
 A hidden feature of Seahorse XF OCR data is that it has a complex data structure, caused by nesting and crossing between measurement cycles, wells and plates. 
 Surprisingly, statistical analysis of Seahorse XF data has not received sufficient attention, and current methods completely ignore the complex data structure, impairing the robustness of statistical inference. 
 To rigorously incorporate the complex structure into data analysis, here we developed a Bayesian hierarchical modeling framework, OCRbayes, and demonstrated its applicability based on analysis of published data sets. 
-We showed that OCRbayes can analyze seahorse XF OCR data with either single or multiple plates, and it has potential to be used for diagnosing patients with mitochondrial diseases. 
+We showed that OCRbayes can analyze Seahorse XF OCR data with either single or multiple plates, and it has potential to be used for diagnosing patients with mitochondrial diseases. 
 
 # Introduction
 
 Mitochondria are double-membrane organelles that are central hubs in regulating energy generation and partitioning. 
-Since defects in mitochondrial function have been found to be involved in cardiovascular diseases [@Ballinger2005], type II diabetes [@Szendroedi2011], neurodegenerative disease [@Johri2012] and cancer [@Erez2015], restoring mitochondrial function is emerging to be a therapeutic target for common diseases [@Murphy2018]. 
+Patients with genetic defects in mitochondrial function are often affected by severe and progressive disease in early life [@Koene2013]. 
+Furthermore, mitochondrial disorders have also been found to be involved in cardiovascular diseases [@Ballinger2005], type II diabetes [@Szendroedi2011], neurodegenerative disease [@Johri2012] and cancer [@Erez2015].
+Thus, restoring mitochondrial function is emerging to be a therapeutic target for both common diseases [@Murphy2018] as well as genetic mitochondrial diseases [@Weissig2020]. 
 
-Mitochondria produce energy primarily by transferring electrons along the electron transport chain (ETC) on the inner membrane. 
-Along the ETC, there are four complexes (including complex I, II, III and IV), building up a proton gradient that is ultimately used by ATP synthase to generate ATP. 
-Since electrons are primarily accepted by O~2~ to produce H~2~O, the activity of ETC can be assessed by measuring oxygen consumption rate (OCR). 
-As a reliable and efficient platform, Seahorse XF analyzer is a multiwell plate based respirometry assay that is widely used to quantify OCR in living cells [@Wu2007]. 
-Typically, the seahorse XF analyzer measures the OCR of cells in a 96-well plate under different ETC perturbation scenarios, used for assessing mitochondrial functionality such as maximal respiration, leak respiration and ATP-linked respiration [@@Chacko2014]. 
-Seahorse XF Cell Mito Stress Test consists of four phases including an initial phase, followed by three consecutive injections, including oligomycin, FCCP (carbonyl cyanide-4-(trifluoromethoxy)phenylhydrazone) and a mixture of rotenone and antimycin A. 
-In the initial phase, no compound is injected and ETC is not perturbed. 
-Once oligomycin is injected in the assay, proton translocation through ATP synthase is blocked, leading to a reduction in OCR. 
-Next, injection of FCCP allows protons to move into the mitochondrial matrix independent of the ATP synthase, pushing the oxygen consumption to the maximum level. 
-In the end, a mixture of rotenone and antimycin A is injected to inhibit complex I and III, shutting down mitochondrial respiration.  
+Mitochondria produce energy in oxidative phosphorylation (OXPHOS) primarily by transferring electrons along the electron transport chain (ETC) on the inner membrane. 
+Along the ETC, there are four complexes (complex I, II, III and IV), together building up a proton gradient that is ultimately used by ATP synthase to generate ATP. 
+Since electrons are primarily accepted by O~2~ to produce H~2~O, the OXPHOS activity can be assessed by measuring oxygen consumption rate (OCR). 
+As a reliable and efficient platform, Seahorse XF analyzer provides a multiwell plate based respirometry assay that is widely used to quantify OCR in living cells [@Wu2007]. 
+Typically, the Seahorse XF analyzer measures the OCR of cells in a 96-well plate under different ETC/OXPHOS perturbation scenarios, used for assessing mitochondrial functionality such as maximal respiration, leak respiration and ATP-linked respiration [@Chacko2014]. 
 
-A standard seahorse run includes three measurement cycles for each phase. 
-Every measurement cycle starts by lowering the cartridge and creating a temporary semi-closed 7 $\mu$L chamber [@Gerencser2009]. 
+A typical Seahorse run includes three measurement cycles for each phase. 
+Every measurement cycle starts by lowering the cartridge and creating a temporary semi-closed ~2 $\mu$L chamber [@Gerencser2009]. 
 During a measurement cycle, fluorescent oxygen sensors capture oxygen concentration changes in the chamber and outputs OCR. 
-The Seahorse XF analyzer measures OCR in tens to hundreds of thousands of cells per well and typically requires 4–5 replicate wells per experimental group [@Artyomov2020].
-A single 96-well plate can contain multiple experimental groups. 
+The Seahorse XF analyzer measures OCR in tens to hundreds of thousands of cells per well and typically requires 4–5 replicate wells per experimental group, allowing the analysis of multiple experimental groups in one plate [@Artyomov2020].
 Since measurement cycles are nested within phases, phases are crossed with wells, and wells are nested in experimental groups, a very complex structure is inherently embedded in the Seahorse XF OCR data. 
 Surprisingly, current Seahorse XF data analyses most often ignore this complex structure, and by default, data sets are often chopped into subgroups followed by performing ANOVA-like statistical tests. 
-Although there are tools developed for seahorse data analysis, none of them takes the complexity of the data structure into account. 
-In addition, these methods differ in how to extract OCR value for each phase. 
-For instance, OCR-Stats [@Yepez2018] took OCR value from the last measurement cycle in phase 1, the minimal OCR value in phase 2, the maximal OCR value in phase 3 and the minimal OCR value in phase 4. In contrast, SHORE [@Nicholas2017] took the mean OCR value in phase 1, the median OCR value in phase 2, the maximal OCR value in phase 3, and the median OCR value in phase 4. 
+Although there are advanced tools developed for Seahorse data analysis [@Nicholas2017;@Yepez2018], none of them comprehensively take the complexity of the data structure into account. 
+This can limit not only the interpretation of Seahorse XF OCR outcomes, but also the development of mitochondrial targeted therapies as well as our understanding of mitochondrial biology. 
 
 A natural way to incorporate the complex structure into data analysis is to use hierarchical modeling, which has been extensively developed for analyzing gene expression data  [@Robinson2010a;@Love2014a]. 
 Here we developed a Bayesian hierarchical modeling framework, OCRbayes, for the Seahorse XF OCR data analysis. 
 OCRbayes is based on a fully Bayesian approach due to its flexibility and convenience for constructing the hierarchical models. 
-We analyzed a published OCR data set OCR data set to demonstrate the applicability of our approach analyzing Seahorse XF OCR data as well as its potential usage for mitochondrial disease diagnostics. 
+To demonstrate the applicability of our approach as well as its potential implication for mitochondrial disease diagnostics, we applied OCRbayes to a publicly available OCR data set [@Yepez2018], which contains over 200 Seahorse experiments performed on human fibroblasts derived from patients with mitochondrial diseases and controls. 
 
 # Method
 
-To demonstrate how OCRbayes can be used for Seahorse XF OCR data analysis, we analyzed 26 human fibroblasts that were derived from patients that were suspected to have mitochondrial dysfunction. 
-In particular, six of these cell lines were derived from patients with rare mutations in genes associated with an established cellular respiratory defect, and they serve as positive controls. 
-Meanwhile, there are two cell lines that showed no respiratory defects in earlier studies [@Powell2015;@Kremer2016] and they served as negative controls. 
-Since fold change of maximal respiration is the most common metric used for identifying mitochondrial dysfunction, we compared the maximal respiration of all these 26 cell lines against the control cell line. 
+## OCRbayes: A Bayesian hierarchical modeling framework for Seahorse OCR data analysis
 
-## Data
+In order to incorporate the complex data structure into the analysis of Seahorse XF OCR measurements, we developed a Bayesian hierarchical modeling framework, OCRbayes. 
+In this study, we focused on experimental data containing two groups, such as patient and control group. 
+From our perspective, the Seahorse OCR data include three levels, including 1) measurement cycle, 2) well and 3) plate. 
 
-We downloaded the seahorse XF OCR data presented in OCR-Stats [@Yepez2018] from the journal website https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0199938#sec022. 
-This data set contains 203 human fibroblasts assayed in 126 plates. 
-The normal human dermal fibroblasts (NHDF) is used as control. 
-The rest 202 cell lines were derived from patients suspected to suffer from rare mitochondrial diseases. 
-Among these 202 cell lines, 26 fibroblast cell lines were grown independently and were measured in multiple plates. 
-The rest 176 fibroblast cell lines were measured in a single plate. 
-We then spitted the data set into two subsets. 
-One subset, which contains the 176 fibroblasts that were assayed in a single plate, was used for estimating prior distributions. 
-The other subset, which contains the 26 fibroblasts, was used for benchmarking. 
+During a measurement cycle, fluorescent oxygen sensors capture oxygen concentration changes in the chamber and outputs OCR. 
+For every interval, multiple measurement cycles are performed in order to accurately measure the OCR. 
+A typical Seahorse run contains four intervals. 
+The first interval refers to initial phase, and the second, third, fourth interval refer to phase after injecting oligomycin (blocking proton translocation through ATP synthase), FCCP (allowing protons to move into the mitochondrial matrix independent of the ATP synthase) and antimycin/rotenone (inhibiting complex I and III, shutting down mitochondrial respiration).  
+The variation between the OCR values within an interval is the between measurement cycle variation. 
+Since OCR values must be positive, we used a lognormal distribution with the true OCR value at the log scale ($\text{logOCR}_\text{true}$) and the between measurement cycle standard deviation (also at the log scale, $\text{logOCR}_\text{sd}$) to model each observed OCR value ($\text{OCR}_\text{obs}$). 
 
-Since dealing missing observations is not the focus of this study, we removed the entire measurement values of a well if it contains a missing OCR value. 
-In addition, since we focused on the standard mitochondrial stress test assay, we removed any well if that well does not have 4 phases with 3 measurement cycles each. 
-For the prior distribution subset, we had 177 (including the control cell line NHDF) cell lines on 78 plates after filtering. 
-Since NHDF cell line was present in all 78 plates, the OCR values derived from NHDF cell line were used for estimating the prior distribution of between plate variation. 
+$$\text{OCR}_\text{obs}\text{[i]} \sim \text{Lognormal(logOCR}_\text{true}\text{[P[i],W[i],I[i]]}, \text{logOCR}_\text{se}\text{[P[i],I[i]])} \text{ (1)}$$
 
-## Implementation details
+$\text{OCR}_\text{obs}$ is a vector of length $\text{N}_\text{plate} \times \text{N}_\text{well} \times \text{N}_\text{interval} \times \text{N}_\text{measurement}$, where $\text{N}_\text{plate}$, $\text{N}_\text{well}$, $\text{N}_\text{interval}$ and $\text{N}_\text{measurement}$ are number of plates, wells, intervals and measurement cycles, respectively. 
+The $\text{logOCR}_\text{true}$ refers to $\text{N}_\text{plate}$ layers of matrices. 
+Each layer is a matrix with $\text{N}_\text{well}$ rows and $\text{N}_\text{interval}$ columns. 
+$\text{logOCR}_\text{sd}$ is a matrix of $\text{N}_\text{plate}$ rows and $\text{N}_\text{interval}$ columns. 
 
-The Bayesian hierarchical models were implemented in Stan (version 2.19.3) [@Carpenter2017]. 
+In a typical Seahorse XF assay, the same cell line from the same experimental group is seeded in multiple wells. 
+However, the OCRs in these replicate wells will not be the same, and the difference is called between well variation. 
+One obvious reason causing the between well variation is that the number of cells in these replicate wells are not identical. 
+To adjust for the effect of cell number difference, we modeled the true OCR value as a function of the cell number, and from there estimated $\text{OCR}_\text{per 1k cells}$, which represents OCR value per 1000 cells that received the same treatment (or from the same group) and injection. 
+In addition to cell number difference, technical, procedural or instrumental noise can also contribute to between well variation. 
+We captured this well-to-well variation after accounting for cell number difference with the residual parameter $\sigma_\text{well}$. 
+
+$$\text{logOCR}_\text{true}\text{[P[i],W[i],I[i]]} \sim \text{Normal(}\text{OCR}_\text{per 1k cells}\text{[P[i],G[i],I[i]]} \times \text{N}_\text{cells}\text{[W[i]]}, \sigma_\text{well}\text{[P[i],G[i],I[i]])} \text{ (2)}$$
+
+$\text{OCR}_\text{per 1k cells}$ is a three-dimensional matrix with $\text{N}_\text{plate}$ layers, and each layer has $\text{N}_\text{group}$ rows and $\text{N}_\text{Interval}$ columns. 
+$\text{N}_\text{cells}$ is a vector of length $\text{N}_\text{well}$, and every entry represents the cell number in that well. 
+
+The Seahorse XF assay for a (patient) cell line or a specific condition is often repeated on different days and on more than one plates. 
+Due to batch effects such as plating, culturing or environmental differences between time and laboratories, OCR measurements will differ between plates. 
+To take into account the between plate variation, we used another lognormal distribution with the logarithm transformed OCR value per 1000 cells,  ($\mu_{\text{OCR}_\text{per 1k cells}}$) and the between plate standard deviation ($\sigma_\text{plate}$) to model the OCR value per 1000 cells $\text{OCR}_\text{per 1k cells}$. 
+
+$$\text{OCR}_\text{per 1k cells}\text{[P[i],G[i],I[i]]} \sim \text{Lognormal(log(}\mu_{\text{OCR}_\text{per 1k cells}}\text{[G[i], I[i]])}, \sigma_\text{plate}\text{[G[i], I[i]])} \text{ (3)}$$
+
+## Bayesian inference
+
+OCRbayes focuses on calculating posterior distributions for OCR per 1000 cells in various experimental conditions ($\text{P(}\mu_{\text{OCR}_\text{per 1k cells}} \text{|} \text{OCR}_\text{obs}\text{)}$). 
+The posterior distributions were combinations of prior distributions ($\text{P(logOCR}_\text{se}\text{)}$, $\text{P(}\sigma_\text{well}\text{)}$, $\text{P(}\sigma_\text{plate}\text{)}$ and $\text{P(}\mu_\text{OCR}_\text{per 1k cells}\text{)}$), and the likelihood function ($\text{P(}\text{OCR}_\text{obs} \text{|} \text{N}_\text{cell}, \mu_{\text{OCR}_\text{per 1k cells}}, \text{logOCR}_\text{sd}, \sigma_\text{well}, \sigma_\text{plate}\text{)}$)
+
+In this study, since our case studies focused on human fibroblast cells, we used informative prior distributions for $\text{logOCR}_\text{sd}$, $\sigma_\text{well}$, $\sigma_\text{plate}$ and $\mu_{\text{OCR}_\text{per 1k cells}}$. 
+Since values of all these parameters must be positive, we used four lognormal distributions. 
+We applied maximum likelihood estimation to calculate the lognormal distribution parameters based on the Seahorse XF OCR data in OCR-stats [@Yepez2018] by running the fitdistr function built in the MASS r package. 
+In this study, our prior distributions are
+
+$$
+\begin{align}
+\text{logOCR}_\text{sd} & \sim \text{Lognormal(-3.23, 0.79)} \\
+\sigma_\text{well} & \sim \text{Lognormal(-1.62, 0.53)} \\
+\sigma_\text{plate} & \sim \text{Lognormal(-1.18, 0.05)} \\
+\mu_{\text{OCR}_\text{per 1k cells}} & \sim \text{Lognormal(0.3, 0.79)}
+\end{align}
+$$
+
+The Bayesian multi-level model of OCRbayes was implemented in Stan (version 2.19.3) [@Carpenter2017]. 
 We fitted the model by running Hamiltonian Markov Chain Monte Carlo. 
 We ran four Markov chains with 2000 iterations in each chain. 
 The code can be found at https://github.com/XiangZhangSC/seahorse. 
@@ -92,135 +121,125 @@ We also provided the R code of OCRbayes in the supplementary file.
 Based on OCR (per 1000 cells), we calculated various bioenergetic measures, such as basal respiration, proton leak, ATP-linked respiration, spare respiratory capacity and maximal respiration.
 These bioenergetic measures are defined as below. 
 
-$$\text{Basal respiration} = \text{OCR}_\text{per 1k cells, initial} - \text{OCR}_\text{per 1k cells, rotenone} \text{ (Equation 1)}$$
-$$\text{ATP-linked respiration} = \text{OCR}_\text{per 1k cells, initial} - \text{OCR}_\text{per 1k cells, oligomycin} \text{ (Equation 2)}$$
-$$\text{Proton leak} = \text{OCR}_\text{per 1k cells, oligomycin} - \text{OCR}_\text{per 1k cells, rotenone} \text{ (Equation 3)}$$
-$$\text{Spare respiratory capacity} = \text{OCR}_\text{per 1k cells, FCCP} - \text{OCR}_\text{per 1k cells, initial} \text{ (Equation 4)}$$
-$$\text{Maximal respiration} = \text{OCR}_\text{per 1k cells, FCCP} - \text{OCR}_\text{per 1k cells, rotenone} \text{ (Equation 5)}$$
+$$\text{Basal respiration} = \text{OCR}_\text{per 1k cells, initial} - \text{OCR}_\text{per 1k cells, antimycin/rotenone} \text{ (4)}$$
+$$\text{ATP-linked respiration} = \text{OCR}_\text{per 1k cells, initial} - \text{OCR}_\text{per 1k cells, oligomycin} \text{ (5)}$$
+$$\text{Proton leak} = \text{OCR}_\text{per 1k cells, oligomycin} - \text{OCR}_\text{per 1k cells, antimycin/rotenone} \text{ (6)}$$
+$$\text{Spare respiratory capacity} = \text{OCR}_\text{per 1k cells, FCCP} - \text{OCR}_\text{per 1k cells, initial} \text{ (7)}$$
+$$\text{Maximal respiration} = \text{OCR}_\text{per 1k cells, FCCP} - \text{OCR}_\text{per 1k cells, antimycin/rotenone} \text{ (8)}$$
+
+## Human fibroblast OCR data
+
+To benchmark OCRbayes as well as illustrate how OCRbayes can be used for analyzing OCR in patients with mitochondrial diseases, we used the OCR data set provided in Yepez et al. [@Yepez2018]. 
+This data set contains Seahorse OCR measurements from 203 human fibroblast cell lines that have been assayed in 126 plates. 
+Normal human dermal fibroblast (NHDF) reference cell lines were used as controls in all plates. 
+The other 202 cell lines were derived from patients suspected to suffer from rare mitochondrial diseases. 
+Among these 202 cell lines, 26 fibroblast cell lines were measured in multiple plates. 
+We used the 176 patient fibroblast cell lines that were assayed in a single plate as well as the control cell line in the same plates for estimating prior distributions. 
+The other 26 fibroblast cell lines were used for benchmarking OCRbayes. 
+Among the 202 cell lines that were analyzed, Yepez et al. [@Yepez2018] labeled 6 patient cell lines as positive controls that have shown statistically significant reduction in maximum respiration. 
+Meanwhile, Yepez et al. also labeled another two patient cell lines as negative controls, since these cell lines did not show changes in OCR in earlier experiments [@Yepez2018]. 
+
+We processed the original data by removing wells in which single or more OCR measurements were missing. 
+After filtering, we used 176 patient cell lines together with the NHDF control cell line on 78 plates for estimating the prior distributions for between measurement cycle variation ($\text{logOCR}_\text{sd}$) and between well variation ($\sigma_\text{well}$). 
+To estimate the prior distribution for between plate variation ($\sigma_\text{plate}$) and mean OCR per 1000 cells ($\mu_{\text{OCR}_\text{per 1k cells}}$), we used the OCR values from the NHDF cell lines that were plated in all 78 plates. 
 
 ## Statistical analysis
 
-For each cell line study, we compared the patient cell line to the control cell line (NHDF). 
-Since maximal respiration is the primary readout of mitochondrial defect in literature, and was also evaluated in the OCR-Stats, here we reported the mean log2 fold change of maximal respiration together with the False Discovery Rate (FDR). 
-FDR was calculated based on the posterior error probability ($1 - P(log2(\frac{\text{patient}}{\text{control}}|\text{data}) < 0)$), where $P$ represents the posterior distribution after fitting the Bayesian model to the experimental OCR data. 
-If the FDR below 0.05, we consider that difference between patient and control cell line was statistically significant. 
+For benchmarking OCRbayes, we compared the patient cell lines to the control cell line (NHDF). 
+Since mitochondrial dysfunction is often reflected in the maximal respiration, which was also evaluated previously in the Yepez et al. study [@Yepez2018], we reported here the mean log2 fold change of maximal respiration together with the False Discovery Rate (FDR). 
+FDR was calculated based on the posterior error probability ($1 - \text{P(log}_2\text{(}\frac{\text{patient}}{\text{control}}\text{|}\text{OCR}_{obs}) < 0\text{)}$), where $\text{P(log}_2\text{(}\frac{\text{patient}}{\text{control}}\text{|}\text{OCR}_{obs}\text{)}$ represented the posterior distribution of fold change after fitting the Bayesian model to the experimental OCR data. 
+If the FDR was below 0.05, we considered that the difference between patient and control cell line was statistically significant. 
 
 # Results
 
-## OCRbayes: A Bayesian hierarchical modeling framework for Seahorse OCR data analysis
+## OCRbayes: from OCR to respiration metric difference
 
-In order to incorporate the complex data structure into the analysis of seahorse XF OCR measurements, we developed a Bayesian hierarchical modeling framework, OCRbayes. 
-In this study, we focused on experimental data containing two groups, patient and control. 
-The mathematical description of our Bayesian hierarchical modeling framework is shown below:
+To demonstrate the applicability, we applied OCRbayes to analyze OCR data derived from two patient cell lines with known mutations in either *BOLA3* or *PET100* gene. 
+These two genes encode proteins that are essential for biogenesis or assembly of mitochondrial complexes [@Olahova2015;@Lim2014;@Haack2013]. 
+We compared the patient cell line to the control cell lines within their respective plates. 
+These two cell lines were both assayed on two plates on two different days. 
+For both cell lines, we observed a clear decrease in maximal respiration compared to the control cell lines in both plates (Figure 1A and 1E). 
+Meanwhile, we noticed that the range of OCR values in the two plates used for profiling *BOLA3* patient cell line differed considerably (Figure 1A). 
+In particular, maximal OCR value in the first plate was around 200 pmol/min, whereas in the second plate the maximal OCR value was around 100 pmol/min. 
+In contrast, the range of OCR values in the two plates used for profiling *PET100* were similar to each other. 
+In addition, it was obvious that there was considerable variation between the replicate wells in both plates for both cell lines. 
 
-$$\text{OCR}_\text{obs}\text{[i]} \sim \text{Lognormal(logOCR}_\text{true}\text{[P[i],W[i],I[i]]}, \text{logOCR}_\text{se}\text{[P[i],I[i]])} \text{ (Equation 6)}$$
-$$\text{logOCR}_\text{true}\text{[P[i],W[i],I[i]]} \sim \text{Normal(}\text{OCR}_\text{per 1k cells}\text{[P[i],G[i],I[i]]} \times \text{N}_\text{cells}\text{[W[i]]}, \sigma_\text{well}\text{[P[i],G[i],I[i]])} \text{ (Equation 7)}$$
-$$\text{OCR}_\text{per 1k cells}\text{[P[i],G[i],I[i]]} \sim \text{Lognormal(}\mu_{\text{OCR}_\text{per 1k cells}}\text{[G[i], I[i]]}, \sigma_\text{plate}\text{[G[i], I[i]])} \text{ (Equation 8)}$$
+By applying OCRbayes, we combined the two plates for each cell line, calculated the posterior distributions for OCR per 1000 cells during the four intervals of a typical Seahorse assay, including initial phase without injection (Int1), oligomycin phase (Int2), FCCP phase (Int3) and antimycin/rotenone phase (Int4) (Figure 1B and 1F). 
+Next, the calculated posterior OCR per 1000 cells for the four intervals were transformed into the various respiration metrics, including ATP-linked respiration, basal respiration, maximal respiration, proton leak and spare respiratory capacity (Figure 1C and 1G). 
+In the last step, we compared the respiration metrics in patient cell line to the control cell line, and calculated the posterior distribution for log2(fold change) (Figure 1D and 1H). 
+We observed that both *BOLA3* and *PET100* patient cell line showed reduction in ATP-linked respiration, basal respiration and maximal respiration, compared to the control cell line. 
+On the other hand, these two patient cell lines showed no difference in proton leak and spare respiratory capacity compared to the control cell line (Figure 1D and 1H). 
 
-From our perspective, there are three sources of technical variations including 1) between measurement cycle variation, 2) between well variation and 3) between plate variation in the Seahorse XF OCR data. 
+## OCRbayes accounts for various technical variations during Seahorse XF OCR data analysis
 
-The between measurement cycle variation refers to the variability between the three OCR values generated by the three measurement cycles within an injection phase. 
-In Equation 6, we used a lognormal distribution with the true OCR value at the log scale ($\text{logOCR}_\text{true}$) and the between measurement cycle standard deviation (also at the log scale, $\text{logOCR}_\text{se}$) to model each observed OCR value ($\text{OCR}_\text{obs}$). 
-$\text{OCR}_\text{obs}$ is a vector of length $\text{N}_\text{plates} \times \text{N}_\text{wells} \times \text{N}_\text{injections} \times \text{N}_\text{Measurement}$, where $\text{N}_\text{plates}$, $\text{N}_\text{wells}$, $\text{N}_\text{injections}$ and $\text{N}_\text{Measurement}$ are number of plates, wells, injections and measurement cycles, respectively. 
-The $\text{logOCR}_\text{true}$ refers to $\text{N}_\text{plates}$ layers of matrices. 
-Each layer is a matrix with $\text{N}_\text{wells}$ rows and $\text{N}_\text{injections}$ columns. 
-$\text{logOCR}_\text{se}$ is a matrix of $\text{N}_\text{plates}$ rows and $\text{N}_\text{injections}$ columns. 
+OCR measurements generated by the Seahorse XF analyzer were affected by various technical variations, including between measurement cycle variation, between well variation and between plate variation. 
+To visualize the technical variations, we used the cell line with a genetic mutation in *NSUN3* gene (patient cell line 76065). 
+This cell line was measured on five different plates, allowing us to visualize all three technical variations. 
 
-In a typical seahorse XF assay, the same cell line from the same experimental group is often seeded in multiple wells. 
-However the number of cells in these replicate wells are not identical, thus causing variation in OCR values between these replicate wells. 
-To adjust for the effect of cell number difference, in Equation 7 we modeled the true OCR value as a function of the cell number, and from there estimated $\text{OCR}_\text{per 1k cells}$, which represents OCR value per 1000 cells that received the same treatment (or from the same group) and injection.
-$\text{OCR}_\text{per 1k cells}$ is a three dimensional matrix with $\text{N}_\text{Groups}$ layers, and each layer has $\text{N}_\text{Groups}$ rows and $\text{N}_\text{injections}$ columns. 
-$\text{N}_\text{cells}$ is a vector of length $\text{N}_\text{wells}$, and every entry represents the cell number in that well. 
-In addition to cell number difference, initial conditions, treatment concentration, or fluorophore sleeve calibration can also contribute to between well variation. 
-Since these factors were difficult to be measured experimentally, we can only estimate an overall effect based on the residual parameter $\sigma_\text{well}$. 
-Thus, $\sigma_\text{well}$ represents the well-to-well variation after accounting for cell number difference. 
+OCRbayes calculated the between measurement cycle variation for each plate during each interval. 
+For each cell line in each plate, OCRbayes calculated the between well variation during each interval.
+Regarding the between plate variation, OCRbayes estimated it for each cell line during each interval. 
+All the variation values were on the log scale. 
+We observed that for both patient and control cell line in the initial phase (Int1) and FCCP phase (Int3), the between plate variation was larger than the between well variation, which itself was larger than the between measurement cycle variations (Figure 2). 
+However, in the oligomycin phase (Int2) and antimycin/rotenone phase (Int4), the between plate variation was not always larger than the other two technical variations (Figure 2). 
+In particular, we observed that the between well variation was larger than the between measurement cycle and the between plate variation in three plates during the antimycin/rotenone phase (Int4) in the patient cell line. 
 
-Last but not the least, the seahorse XF assay for a patient cell line is often repeated on different days and on more than one plates. 
-Due to differences in temperature, seeding time, growth time, growth medium, sensor cartridge as well as treatment efficiency, the OCR outcomes will differ between plates. 
-To take into account the between plate variation, in Equation 8 we used another lognormal distribution with the true OCR value per 1000 cells at log scale ($\mu_{\text{OCR}_\text{per 1k cells}}$) and the between plate standard deviation ($\sigma_\text{plate}$) to model the OCR value per 1000 cells $\text{OCR}_\text{per 1k cells}$. 
+## Benchmark OCRbayes
 
-In this study, since our case studies focused on human fibroblast cells, we used informative prior distributions for $\text{logOCR}_\text{se}$, $\sigma_\text{well}$, $\sigma_\text{plate}$ and $\mu_{\text{OCR}_\text{per 1k cells}}$. 
-Since values of all these parameters must be positive, we used four lognormal distributions. 
-We estimated the lognormal distribution parameters based on the Seahorse XF OCR data in OCR-stats [@Yepez2018] by running the fitdistr function built in the MASS r package. 
-In this study, our prior distributions are
-$$
-\begin{align}
-\text{logOCR}_\text{se} & \sim \text{Lognormal(-3.23, 0.79)} \\
-\sigma_\text{well} & \sim \text{Lognormal(-1.62, 0.53)} \\
-\sigma_\text{plate} & \sim \text{Lognormal(-1.18, 0.05)} \\
-\mu_{\text{OCR}_\text{per 1k cells}} & \sim \text{Lognormal(0.3, 0.79)}
-\end{align}
-$$
+To demonstrate that OCRbayes works properly, we applied it to analyze the published Seahorse XF OCR data set containing 26 patient cell lines as well as a control cell line. 
+This data set contains 6 cell lines were labeled as positive controls and 2 cell lines were labeled as negative controls (as explained in the material and methods section). 
 
-## OCRbayes uses OCR measurements as inputs and outputs posterior distributions for respiration metrics
+Based on our analysis, we found 6 patient cell lines that had lower maximal respiration compared to the control cell line with False Discovery Rate (FDR) below 0.05 (Figure 3B). 
+Among the 6 patient cell lines that showed statistically significant reduction in maximal respiration compared to the control cell line, the patient cell line 73387 (mutation in *PET100* gene) showed the largest effect whereas the patient cell line 76065 (mutation in *NUSN3* gene) showed the smallest effect (Figure 3A). 
+Five of these 6 patient cell lines were actually the positive controls. 
+Meanwhile, the two negative controls (patient cell lines 73901 and 91410) had FDR above 0.05 in our analysis. 
 
-OCRbayes works with the raw OCR data, and estimates the OCR per 1000 cells during initial phase (Int1), oligomycin phase (Int2), FCCP phase (Int3) and rotenone phase (Int4) (Figure 1A and 1B). 
-Afterwards, the posterior OCR per 1000 cells values were transformed into various respiration metrics, such as ATP-linked respiration, basal respiration, maximal respiration, proton leak and spare respiratory capacity (Figure 1C). 
-As an example, here we showed patient 65126 and the control cell line (NHDF) on the corresponding plates. 
-The posterior distributions showed the range of values for a respiration parameter. 
-The spread of the posterior distributions represented the uncertainty, which is resulted from technical variations that will be discussed in the next section. 
-
-![Figure 1 (A) Raw OCR values for patient 65126 and control cell line in two plates. (B) Posterior distributions for OCR per 1000 cells in patient 65126 and control cell line during initial phase (Int1), oligomycin phase (Int2), FCCP phase (Int3) and rotenone phase (Int4). (C) Posterior distributions for respiration metrics in patient 65126 and control cell line.](./posterior_respiration_examples.jpeg)
-
-## OCRbayes accounts for various technical variations during seahorse XF OCR data analysis
-
-To visualize the technical variations, we used the cell line 76065 as an example. 
-This cell line was measured on five different plates, allowing us to visualize all three technical variations.  
-We observed that in the initial phase (Int1) and FCCP phase (Int3), the between plate variation is dominant source of technical variation, followed by between well and between measurement cycle variations. 
-However, in the oligomycin phase (Int2) and rotenone phase (Int4), the between well variation can be as important as the between plate variation. 
-
-![Figure 2 Technical variations in seahorse XF OCR data of experiments based on cell line 76065 and control cell line. Int1, Int2, Int3 and Int4 represent initial, oligomycin, FCCP and rotenone phase. All the variations were on log scale.](./technical_variations_76065.jpeg)
-
-## Benchmark
-
-To demonstrate that OCRbayes works properly, we applied it to analyze a published seahorse XF OCR data set containing 26 patient cell lines as well as a control cell line. 
-In a previous study, 6 cell lines were labeled as positive controls and 2 cell lines were labeled as negative controls. 
-Based on our analysis, we found six patient cell lines that had lower maximal respiration compared to the control cell line with False Discovery Rate (FDR) below 0.05. 
-Five of these six cell lines were actually the positive controls. 
-Meanwhile, the two negative controls had FDR above 0.05. 
-
-![Figure 3 Maximal respiration change patient vs. control on multiple plates. (A) average log2 fold change (y-axis) of maximal respiration of all cell lines repeated across plates (x-axis) and their respective controls, sorted by the False Discovery Rate (FDR). Red and blue dots represent positive and negative controls, respectively. (B) similar to (A), but depicting FDR. Red dashed line represents FDR = 0.05.](./benchmark.jpeg)
-
-Our analysis successfully recalled  all negative controls and five out of six positive controls. 
-Interestingly, our analysis showed that there was no significant reduction of maximal respiration in patient 61818, which was used as a positive control. 
-This patient cell line was measured by seahorse XF OCR assay on three independent plates on three different days. 
+Our analysis successfully recalled both negative controls and five out of six positive controls. 
+Interestingly, our analysis showed that there was no significant reduction of maximal respiration in the cell line with a genetic mutation in *SFXN4* gene (patient 61818) that was previously labeled as positive control [@Yepez2018]. 
+This patient cell line was measured on three independent plates on three different days. 
+The range of OCR values of these three plates differed, indicating considerable between plate variation (Figure 4A). 
+The OCR profiles of the patient and control cell line were overlapping in the first plate (Figure 4A). 
+In contrast, the OCR profiles derived from the second and third plate showed OCR decreasing in the patient cell line compared to the control cell line, especially during the FCCP phase (Figure 4A).
+Meanwhile, we observed considerable variation between the replicate wells as well as measurement cycles in these Seahorse assays (Figure 4A).  
+In addition, the between measurement cycle variation in the third plate seemed to be larger than the other two plates (Figure 4A). 
 We analyzed these three repeated experiments separately as well as combined them together. 
-We found that only the second experiment showed difference in maximal respiration. 
+Our separate analysis showed that only the second experiment showed difference in maximal respiration (Figure 4B). 
+When we used OCRbayes to analyze all the three plates together, we found that a tendency that the patient cell line had lower maximal respiration than the control cell line. 
+However, this tendency was not statistically significant. 
 
-![Figure 4 (A) Raw OCR values for patient cell line 61818 in three repeated plates. (B) Posterior distributions of maximal respiration of patient 61818 and the control cell line in the same plate. The top three panels represent analysis of three repeated experiments separately. The last panel represents the data analysis outcome after combing all three repeated experiments.](./posterior_maximal_respiration_61818.jpeg)
+## OCRbayes can be used to evaluate the probability that a patient fibroblast cell line has an abnormality in mitochondrial respiration.
 
-## OCRbayes can facilitate decision making about whether testing on multiple plates is necessary
+A feature that makes OCRbayes unique from other methods is that OCRbayes can evaluate what is the probability that a patient has abnormality in his or her fibroblast mitochondrial respiration based on a single Seahorse assay or multiple Seahorse assays.
+To demonstrate this feature, we used two patient cell lines that showed significant reduction in maximal respiration in our analysis. 
+One patient cell line was was the *PET100* gene mutation fibroblast (patient cell line 73387) and the other patient cell line was *NSUN3* gene mutation fibroblast (patient cell line 76065). 
+Among the 6 patient cell lines that showed statistically significant reduction in maximal respiration compared to the control cell line, the *PET100* and *NSUN3* cell line showed the largest and smallest effect, respectively (Figure 3B).
 
-A frequent question regarding seahorse XF analysis is that whether it is enough to perform the assay on a single plate or do we really need repeat the assay multiple times on different plates. 
-To address this question, we used the two positive control cell lines 67375 and 76065 as examples, since in our analysis they were shown to have the maximal and minimal effect size among the positive controls, respectively.
-
-The cell line 67375 was measured on two plates. 
-Based on the first assay, our analysis shewed that the posterior probability of patient 67375 having decreasing maximal respiration than the control was 93.0%. 
-By repeating the experiment once more, the posterior probability increased to 99.4%. 
-In contrast, the cell line 76065 was measured on five different plates. 
-Our analysis showed that based on the first assay, the posterior probability of patient 76065 having lower maximal respiration than the control was 40.6%. 
-Repeating the assay once increased the posterior probability from 40.6% to 72.0%. 
-When the assay was repeated for the third, fourth and fifth time, the corresponding posterior probabilities increased to 78.8%, 87.9% and 89.9%, respectively. 
-
-![Figure 5 (A) Posterior probability of decreasing maximal respiration in patient 67375 compared to the control cell line in the scenario with 1 or 2 plates. (B) Posterior probability of decreasing maximal respiration in patient 76065 compared to the control cell line in the scenario with 1, 2, 3, 4 or 5 plates](./posterior_max_resp_67375_76065.jpeg)
+The *PET100* patient cell line was measured on two plates. 
+Based on the first assay, our analysis showed that the posterior probability of this *PET100* mutation carrier having lower maximal respiration than the control was 97.8%. 
+By repeating the experiment once more, the posterior probability increased to 99.8% (Figure 5A). 
+In contrast, the cell line with mutation in *NSUN3* gene (patient cell line 76065) was measured on five different plates. 
+Our analysis showed that based on the first assay, the posterior probability of this *NSUN3* mutation carrier having lower maximal respiration than the control was 41.3%. 
+Repeating the assay once increased the posterior probability from 41.3% to 73.4%. 
+When the assay was repeated for the third, fourth and fifth time, the corresponding posterior probabilities increased to 78.7%, 87.7% and 90.0%, respectively (Figure 5B). 
+In summary, we demonstrate that OCRbayes can be used to evaluate the probability that a patient fibroblast cell line has an abnormality in mitochondrial respiration based on a single Seahorse assay or multiple Seahorse assays.
 
 # Discussion
 
 Although Seahorse XF analyzer is widely used in bioenergetic profiling, its data analysis has not received sufficient attention. 
-A hidden feature of seahorse XF OCR data is that it contains a complex data structure. 
-The complex data structure is due to the fact that seahorse measurement cycles are nested within injections, injections are crossed with wells, and wells are nested in plates. 
-As far as we know, currently there is no data analysis protocols that take into account this complex data structure, impairing the robustness of seahorse XF OCR data analysis outcomes. 
+A hidden feature of Seahorse XF OCR data is that it contains a complex data structure. 
+The complex data structure is due to the fact that measurement cycles are nested within injections, injections are crossed with wells, and wells are nested in plates. 
+As far as we know, currently there is no data analysis protocol that takes into account this complex data structure, impairing the robustness of Seahorse XF OCR data analysis outcomes. 
 This is because when one ignores the data structure, one also ignores the variations between measurement cycles, between wells and between plates. 
-In order to make the seahorse data analysis more robust, in this study we developed a Bayesian hierarchical modeling approach, OCRbayes, which accounts for all these technical variations during the data analysis. 
+In order to make the Seahorse data analysis more robust, in this study we developed a Bayesian hierarchical modeling approach, OCRbayes, which accounts for all these technical variations during the data analysis. 
 
 ## Seahorse XF OCR measurements are noisy
 
 An OCR value is determined not only by mitochondrial activity, but also by technical noise including 1) between measurement cycle variation, 2) between well variation and 3) between plate variation. 
 
-Every phase contains three measurement cycles, resulting in three OCR values. 
-Since every measurement cycle starts with a "mix and wait" steps to ensure the same baseline of cell values, cell physiology should not substantially change within a phase. 
+Every phase typically contains three measurement cycles, resulting in three OCR values. 
+Since every measurement cycle starts with a "mix and wait" step to ensure the same baseline of cell values, cell physiology should not substantially change within a phase. 
 Existing tools such as OCR-stats [@Yepez2018] and SHORE [@Nicholas2017] use different strategies to select a single data point to represent an injection phase. 
-When different data points were chosen, one can get different outcomes, making the current seahorse XF data analysis less robust. 
+When different data points were chosen, one can get different outcomes, making the current Seahorse XF data analysis less robust. 
 To avoid this ambiguity, our approach did not select any particular data point, instead modeled all three OCR data. 
 By doing so, we incorporated the uncertainty about "which data point should I choose?" into the data analysis and focused on the average behavior. 
 
@@ -231,53 +250,86 @@ Fortunately, cell number in each well can be quantified experimentally and used 
 In addition to cell number difference, initial conditions, treatment concentration, or fluorophore sleeve calibration can also contribute to variation between wells. 
 OCRbayes also takes into account the between well variation caused by these unobserved factors. 
 
-Between plate variation takes place when the same seahorse experiment is repeated on different days and on more than one plates. 
+Between plate variation takes place when the same Seahorse experiment is repeated on different days and on more than one plate. 
 Due to differences in temperature, seeding time, growth time, growth medium, sensor cartridge as well as treatment efficiency, the OCR outcomes will differ between plates [@Koopman2016; @Yepez2018]. 
-Often the between plate variation is assumed to be the dominant technical variation involved in seahorse OCR data. 
-Based on our analysis, we showed that this assumption may be appropriate for OCR measurements derived from the initial and FCCP phase, but may not work for the OCR values derived from oligomycin and rotenone phase. 
+Often the between plate variation is assumed to be the dominant technical variation involved in Seahorse OCR data. 
+Based on our analysis, we showed that this assumption may be appropriate for OCR measurements derived from the initial and FCCP phase, but may not work for the OCR values derived from oligomycin and antimycin/rotenone phase. 
+OCR values in the oligomycin and antimycin/rotenone phase were very small and possibly close to the detection limit of the Seahorse XF in a well. 
+Thus, it is more challenging to accurately measure the OCR in these phases. 
 
-## Comparison with OCR-Stats
+## Comparison with other statistical tool for Seahorse XF OCR data analysis
 
 In this work, we compared the maximal respiration in 26 patient cell lines to the control cell line individually as what was done in OCR-stats [@Yepez2018]. 
 Overall our analysis recalled successfully all negative controls and five out of six positive controls. 
-
 Patient cell line 61818 was labeled as a positive control since this patient was found having a mutation in *SFXN4* gene.
 A recent study based on erythroleukemic cell line showed that *SFXN4* knockout resulted in significant decrease in all parameters of respiration, including baseline respiration, respiratory ATP synthesis, maximal respiration, and spare respiratory capacity [@Paul2019]. 
 However, our analysis showed that the maximal respiration of this patient was not significantly different from the control cell line. 
-Our further analysis showed that the patient cell line only showed tenancy of having lower maximal respiration than control in one of the three repeated experiments. 
+Our further analysis showed that the patient cell line only showed a tendency of having lower maximal respiration than control in one of the three repeated experiments. 
 
-We also noticed that our outcomes were not identical as what was presented in OCR-Stats [@Yepez2018]. 
-Strikingly, in our analysis patient 73387 showed significant decreasing in maximal respiration compared to the control cell line. 
+We also noticed that other outcomes were also not identical as what was presented in the OCR-Stats publication [@Yepez2018]. 
+Strikingly, in our analysis *PET100* mutation fibroblast (patient cell line 73387) showed a significant decrease in maximal respiration compared to the control cell line. 
 However, in the OCR-stats [@Yepez2018], the difference in maximal respiration was not statistically significant in this patient. 
-This patient 73387 was diagnosed carrying a homozygous loss of function mutation in the *PET100* gene, which encodes a mitochondrial complex IV biogenesis factor [@Yepez2018; @Olahova2015; @Lim2014]. 
+This patient was diagnosed carrying a homozygous loss of function mutation in the *PET100* gene, which encodes a mitochondrial complex IV biogenesis factor [@Yepez2018; @Olahova2015; @Lim2014]. 
 A homozygous truncating variant (c.142C>T, p.(Gln48\*)) in the *PET100* gene was found to lead to a complete loss of enzyme activity, and caused deficiency in complex IV [@Olahova2015a]. 
-We think that the significant reduction of maximal respiration in patient 73387 corresponded to its deficiency in mitochondrial complex IV. 
+Therefore, our observation of significant reduction in maximal respiration in *PET100* mutation fibroblast based on the OCRbayes is in line with the observed loss of enzymatic activity in patients carrying the genetic mutations in *PET100*. 
+This difference in analysis outcome highlighted the advantage of OCRbayes which used hierarchical models to incorporate the complex data structure into Seahorse OCR data analysis, helping separate the technical variations from the OCR measurements and identify difference in the biological OCR. 
 
-## OCRbayes is potentially used for screening mitochondrial disease
+## OCRbayes is potentially used for screening patients with mitochondrial diseases
 
-Since increasing in proton leak or a decreasing in basal or maximal respiration are indicators of mitochondrial dysfunction [@Brand2011], seahorse XF is potentially to be used for screening mitochondrial disease patients. 
-An immediate question is whether we need to run a single or multiple seahorse assays for a patient. 
-We suggest that whether performing a single or multiple seahorse assay depends on the effect size of perturbation. 
-OCRbayes allows us to calculate posterior probability that the maximal respiration was decreased in patient even based on a single seahorse assay. 
-When the perturbation effect was large, such as cell line 67375, which had the largest effect size among all the positive controls. 
-The posterior probability after observing a single plate was already over 90%. 
+Since an increase in proton leak or a decrease in basal or maximal respiration are indicators of mitochondrial dysfunction [@Brand2011], Seahorse XF is potentially to be used for screening mitochondrial disease patients. 
+An immediate question is whether we need to run a single or multiple Seahorse assays for a patient. 
+We suggest that whether performing a single or multiple Seahorse assay depends on the effect size of the perturbation. 
+OCRbayes allows us to calculate posterior probability that the maximal respiration (or any other respiration metrics) was abnormal in a patient even based on a single Seahorse assay. 
+For example, the patient cell line with mutation in *PET100* gene showed the largest decrease in maximal respiration in our analysis. 
+The posterior probability for this patient having abnormal mitochondrial respiration after observing a single Seahorse assay was already about 98%. 
 It is reasonable to run just a single assay in this case. 
-In contrast, when the perturbation effect was relatively small, for example the cell line 76065, which had the smallest effect size among all the positive controls, the posterior probability after running a single assay was modest (about 40%). 
+In contrast, the cell line with mutation in *NSUN3* gene had the smallest effect size among all the patient cell lines that showed significant reduction in maximal respiration. 
+The posterior probability of this patient having impaired maximum respiration after running a single Seahorse assay was modest (about 40%). 
 Repeating the experiment once more increased the posterior probability from 40% to 70%. 
-Thus in this case, it is beneficial to run multiple seahorse assays. 
-We think that the posterior probability is an useful metric to help scientists to decide whether to perform extra seahorse assays on the patient cell lines. 
+Thus in this case, it is beneficial to run multiple Seahorse assays. 
+We think that the posterior probability is a useful metric to help scientists to decide whether to perform extra Seahorse assays on the patient cell lines. 
+The ability of posterior probability calculation by OCRbayes not only allows to make better conclusions about the significance of the effect of the experimental perturbation, it can also prevent from repeating unnecessary, often expensive, experiments. 
+Furthermore, when the availability of patient material or the number of target cells (specific isolated immune cell subsets) is limited, OCRbayes is valuable to exploit the limited data and facilitate proper validation the experiments. 
 
-## Advantages and limitations
+## Strengths and limitations
 
 OCRbayes has several advantages. 
 The first advantage of our approach is that it incorporates various technical variations including between measurement cycle variation, between well variation as well as between plate variation during the estimation of bioenergetic measures. 
-All current methods needs to choose a single data point from the three measurement cycles to represent the OCR during a particular phase. 
+All current methods need to choose a single data point from the three measurement cycles to represent the OCR during a particular phase. 
 This procedure ignores the uncertainty and makes analysis less robust because different choice of data points may lead to different results. 
-The second advantage is that OCRbayes can calculate posterior probability for difference in various bioenergetic measures based on seahorse OCR data consisting of a single plate or multiple plates. 
-This is a useful feature for screening biopsy samples derived from patients with mitochondrial diseases. 
+The second advantage is that OCRbayes can calculate posterior probability for difference in various bioenergetic measures based on Seahorse OCR data consisting of a single plate or multiple plates. 
+This is a useful feature for screening samples derived from patients with mitochondrial diseases. 
 
-One limitation of this study is that OCRbayes currently focused on human fibroblasts cell line. 
-This is because our model development was restricted to the limited publicly available seahorse OCR data sets. 
-In the future, OCRbayes will be extended to other cell types when more experimental data are generated. 
+One limitation of this study is that OCRbayes currently focused on human fibroblasts cell lines. 
+This is because our model development was restricted to the limited publicly available Seahorse OCR data sets. 
+In the future, OCRbayes can be extended to other cell types when more experimental data are collected and combined to establish databases with experimental OCR data. 
+
+# Data Availability
+
+The dataset supporting the conclusions of this article is included within the article and its additional file.
+
+# Author contributions
+
+XZ developed the OCRbayes and wrote the manuscript. 
+TY edited the manuscript. 
+JK edited the manuscript.
+VB supervised the project and edited the manuscript. 
+All authors read and approved the final manuscript.
+
+# Competing interests
+
+The authors declare that they have no competing interests
+
+# Figure legends
+
+Figure 1 (A) and (E) are OCR profiles for patient cell lines that have a genetic mutation in either BOLA3 (A) or PET100 (E), compared to control cell lines in two plates. (B) and (F) are posterior distributions for OCR per 1000 cells in BOLA3 (B) and PET100 (F) mutated patient cell lines during initial phase (Int1), oligomycin phase (Int2), FCCP phase (Int3) and antimycin/rotenone phase (Int4). (C) and (G) are posterior distributions for respiration metrics in BOLA3 (C) and PET100 (G) mutated patient cell lines and control cell lines. (D) and (H) are posterior distributions of log2 fold change in the respiration metrics between patient and control cell line.
+
+Figure 2 Technical variations in Seahorse XF OCR data of experiments based on the patient cell line with mutation in *NSUN3* gene and the control cell line. Int1, Int2, Int3 and Int4 represent initial, oligomycin, FCCP and antimycin/rotenone phase. All the variations were on log scale. The dots are the posterior mean and the line segment represent the 95% credible interval. 
+
+Figure 3 Maximal respiration change patient vs. control on multiple plates. (A) average log2 fold change (y-axis) of maximal respiration of all cell lines repeated across plates (x-axis) and their respective controls, sorted by the False Discovery Rate (FDR). Red and blue dots represent positive and negative controls, respectively. (B) similar to (A), but depicting FDR. Red dashed line represents FDR = 0.05. 
+
+Figure 4 (A) Raw OCR values for the cell line with genetic mutation in *SFXN4* gene (patient cell line 61818) in three repeated plates. (B) Posterior distributions of maximal respiration of the cell line with genetic mutation in *SFXN4* gene (patient cell line 61818) and the control cell line in the same plate. (C) Posterior distributions of maximal respiration of the cell line  after combing all three repeated experiments. 
+
+Figure 5 (A) Posterior probability of decreasing maximal respiration in patient cell line with mutation in *PET100* gene compared to the control cell line in the scenario with 1 or 2 plates. (B) Posterior probability of decreasing maximal respiration in patient cell line with mutation in *NUSN3* gene compared to the control cell line in the scenario with 1, 2, 3, 4 or 5 plates.
 
 # Reference
