@@ -1,0 +1,320 @@
+---
+title: "Codes for Figure 5"
+author: "Xiang Zhang"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(broom)
+library(ggplot2)
+library(forcats)
+library(rstan)
+library(tidybayes)
+source("./R/customized_functions.R")
+source("./R/OCRbayes.R")
+```
+
+# Load OCR-stats OCR data
+
+```{r}
+yepez.ocr <- read.delim("Yepez_sample_ocr_data.txt")
+yepez.meta <- read.delim("Yepez_sample_meta_data.txt")
+
+yepez.df <- yepez.ocr %>% 
+  as_tibble()
+```
+
+## Plates containing cell line 67375
+
+```{r}
+plates_contain_73387 <- find_host_plate(yepez.df, target_cell_line = "73387")
+
+plates_contain_73387
+```
+
+There are `r length(plates_contain_67375)` plates that contained cell line 67375. 
+
+## Missing data
+
+```{r}
+yepez.df %>% 
+  dplyr::filter(plate_id %in% plates_contain_73387, 
+                is.na(OCR))
+```
+
+```{r include=FALSE}
+plate_to_remove <- yepez.df %>% 
+  dplyr::filter(plate_id %in% plates_contain_73387, is.na(OCR)) %>% 
+  dplyr::select(plate_id, well) %>% 
+  distinct()
+```
+
+
+Here, we can see that there is a missing OCR value for well H5 of plate `r plate_to_remove`. 
+Since dealing missing observation is not the focus of this study, I will remove all the data related this well from the analysis. 
+
+```{r}
+dat73387 <- yepez.df %>% 
+  dplyr::filter(plate_id %in% plates_contain_73387, 
+                Cell_line %in% c("73387", "NHDF")) %>% 
+  anti_join(plate_to_remove)
+```
+
+```{r}
+ggplot(dat73387, aes(time, OCR)) + 
+  geom_line(aes(group = well, color = Cell_line)) + 
+  facet_wrap(~plate_id, ncol = 1)
+```
+
+
+## How many wells (per group) are there in each plate
+
+```{r}
+dat73387 %>% 
+  dplyr::select(plate_id, well, Cell_line) %>% 
+  distinct() %>% 
+  group_by(plate_id, Cell_line) %>% 
+  summarize(number_of_wells = n()) %>% 
+  knitr::kable()
+```
+
+# First experiment 
+
+```{r}
+dat.lev0 <- dat73387 %>% 
+  dplyr::filter(plate_id %in% c("20140202_1849"))
+
+experiment_setup <- tag_experimental_setup(dat.lev0)
+dat_list_for_stan <- collect_data_for_stan(dat.lev0)
+
+scenario_1_plate <- sampling(my_stan_mod, data = dat_list_for_stan, chains = 4L, cores = 4L, control = list(adapt_delta = 0.95))
+
+respiration_1_plate <- convert_ocr_to_respiration(scenario_1_plate, experiment_setup)
+respiration_1_plate$scenario <- "1 plate"
+```
+
+# Repeat the experiment
+
+```{r}
+dat.lev0 <- dat73387
+
+experiment_setup <- tag_experimental_setup(dat.lev0)
+dat_list_for_stan <- collect_data_for_stan(dat.lev0)
+
+scenario_2_plates <- sampling(my_stan_mod, data = dat_list_for_stan, chains = 4L, cores = 4L, control = list(adapt_delta = 0.95))
+
+respiration_2_plates <- convert_ocr_to_respiration(scenario_2_plates, experiment_setup)
+respiration_2_plates$scenario <- "2 plates"
+```
+
+```{r}
+post_respiration <- respiration_1_plate %>% 
+  bind_rows(respiration_2_plates) %>% 
+  dplyr::mutate(scenario = factor(scenario, levels = c("1 plate", 
+                                                       "2 plates")))
+post_respiration %>% 
+  dplyr::filter(what == "Maximal respiration") %>% 
+  ggplot(aes(val)) + 
+  geom_density(aes(color = Cell_line), size = 1) + 
+  scale_color_brewer("", palette = "Set2") + 
+  facet_wrap(~scenario, ncol = 1, scales = "free_y") + 
+  labs(x = "Maximal respiration") + 
+  theme_bw() + 
+  theme(legend.position = "bottom")
+```
+
+
+```{r}
+fig1 <- post_respiration %>% 
+  spread(Cell_line, val) %>% 
+  mutate(patient_vs_control = `73387` - NHDF) %>% 
+  dplyr::filter(what == "Maximal respiration") %>% 
+  group_by(scenario) %>% 
+  summarize(prob_lower = mean(patient_vs_control < 0)) %>% 
+  ggplot(aes(scenario, prob_lower)) + 
+  geom_point(size = 3) + 
+  labs(x = "Scenario", y = "Posterior Probability of Decreasing Maximal Respiration", 
+       title = "A") + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12), 
+        axis.text.y = element_text(size = 12), 
+        axis.title = element_text(size = 14))
+```
+
+## Plates containing cell line 76065
+
+```{r}
+plates_contain_76065 <- find_host_plate(yepez.df, target_cell_line = "76065")
+
+plates_contain_76065
+```
+
+There are `r length(plates_contain_76065)` plates that contained cell line 76065. 
+
+## Missing data
+
+```{r}
+yepez.df %>% 
+  dplyr::filter(plate_id %in% plates_contain_76065, 
+                is.na(OCR))
+```
+
+```{r include=FALSE}
+plate_to_remove <- yepez.df %>% 
+  dplyr::filter(plate_id %in% plates_contain_76065, is.na(OCR)) %>% 
+  dplyr::select(plate_id, well) %>% 
+  distinct()
+```
+
+
+Here, we can see that there is a missing OCR value for well H5 of plate `r plate_to_remove`. 
+Since dealing missing observation is not the focus of this study, I will remove all the data related this well from the analysis. 
+
+```{r}
+dat76065 <- yepez.df %>% 
+  dplyr::filter(plate_id %in% plates_contain_76065, 
+                Cell_line %in% c("76065", "NHDF")) %>% 
+  anti_join(plate_to_remove)
+```
+
+```{r}
+ggplot(dat76065, aes(time, OCR)) + 
+  geom_line(aes(group = well, color = Cell_line)) + 
+  facet_wrap(~plate_id, ncol = 1)
+```
+
+
+## How many wells (per group) are there in each plate
+
+```{r}
+dat76065 %>% 
+  dplyr::select(plate_id, well, Cell_line) %>% 
+  distinct() %>% 
+  group_by(plate_id, Cell_line) %>% 
+  summarize(number_of_wells = n()) %>% 
+  knitr::kable()
+```
+
+# First experiment 
+
+```{r}
+dat.lev0 <- dat76065 %>% 
+  dplyr::filter(plate_id %in% c("20131220_911"))
+
+experiment_setup <- tag_experimental_setup(dat.lev0)
+dat_list_for_stan <- collect_data_for_stan(dat.lev0)
+
+scenario_1_plate <- sampling(my_stan_mod, data = dat_list_for_stan, chains = 4L, cores = 4L, control = list(adapt_delta = 0.95))
+
+respiration_1_plate <- convert_ocr_to_respiration(scenario_1_plate, experiment_setup)
+respiration_1_plate$scenario <- "1 plate"
+```
+
+# Repeat the experiment
+
+```{r}
+dat.lev0 <- dat76065 %>% 
+  dplyr::filter(plate_id %in% c("20131220_911", "20140115_1314"))
+
+experiment_setup <- tag_experimental_setup(dat.lev0)
+dat_list_for_stan <- collect_data_for_stan(dat.lev0)
+
+scenario_2_plates <- sampling(my_stan_mod, data = dat_list_for_stan, chains = 4L, cores = 4L, control = list(adapt_delta = 0.95))
+
+respiration_2_plates <- convert_ocr_to_respiration(scenario_2_plates, experiment_setup)
+respiration_2_plates$scenario <- "2 plates"
+```
+
+# Repeat the experiment third time
+
+```{r}
+dat.lev0 <- dat76065 %>% 
+  dplyr::filter(plate_id %in% c("20131220_911", "20140115_1314", "20140226_1046"))
+
+experiment_setup <- tag_experimental_setup(dat.lev0)
+dat_list_for_stan <- collect_data_for_stan(dat.lev0)
+
+scenario_3_plates <- sampling(my_stan_mod, data = dat_list_for_stan, chains = 4L, cores = 4L, control = list(adapt_delta = 0.95))
+
+respiration_3_plates <- convert_ocr_to_respiration(scenario_3_plates, experiment_setup)
+respiration_3_plates$scenario <- "3 plates"
+```
+
+# Repeat the experiment fourth time
+
+```{r}
+dat.lev0 <- dat76065 %>% 
+  dplyr::filter(plate_id %in% c("20131220_911", "20140115_1314", "20140226_1046", "20140226_2147"))
+
+experiment_setup <- tag_experimental_setup(dat.lev0)
+dat_list_for_stan <- collect_data_for_stan(dat.lev0)
+
+scenario_4_plates <- sampling(my_stan_mod, data = dat_list_for_stan, chains = 4L, cores = 4L, control = list(adapt_delta = 0.95))
+
+respiration_4_plates <- convert_ocr_to_respiration(scenario_4_plates, experiment_setup)
+respiration_4_plates$scenario <- "4 plates"
+```
+
+# Repeat the experiment fifth time
+
+```{r}
+dat.lev0 <- dat76065
+
+experiment_setup <- tag_experimental_setup(dat.lev0)
+dat_list_for_stan <- collect_data_for_stan(dat.lev0)
+
+scenario_5_plates <- sampling(my_stan_mod, data = dat_list_for_stan, chains = 4L, cores = 4L, control = list(adapt_delta = 0.95))
+
+respiration_5_plates <- convert_ocr_to_respiration(scenario_5_plates, experiment_setup)
+respiration_5_plates$scenario <- "5 plates"
+```
+
+```{r}
+post_respiration <- respiration_1_plate %>% 
+  bind_rows(respiration_2_plates) %>% 
+  bind_rows(respiration_3_plates) %>% 
+  bind_rows(respiration_4_plates) %>% 
+  bind_rows(respiration_5_plates) %>% 
+  dplyr::mutate(scenario = factor(scenario, levels = c("1 plate", 
+                                                       "2 plates", 
+                                                       "3 plates", 
+                                                       "4 plates", 
+                                                       "5 plates")))
+post_respiration %>% 
+  dplyr::filter(what == "Maximal respiration") %>% 
+  ggplot(aes(val)) + 
+  geom_density(aes(color = Cell_line), size = 1) + 
+  scale_color_brewer("", palette = "Set2") + 
+  facet_wrap(~scenario, ncol = 1, scales = "free_y") + 
+  labs(x = "Maximal respiration") + 
+  theme_bw() + 
+  theme(legend.position = "bottom")
+```
+
+
+```{r}
+fig2 <- post_respiration %>% 
+  spread(Cell_line, val) %>% 
+  mutate(patient_vs_control = `76065` - NHDF) %>% 
+  dplyr::filter(what == "Maximal respiration") %>% 
+  group_by(scenario) %>% 
+  summarize(prob_lower = mean(patient_vs_control < 0)) %>% 
+  ggplot(aes(scenario, prob_lower)) + 
+  geom_point(size = 3) + 
+  labs(x = "Scenario", y = "Posterior Probability of Decreasing Maximal Respiration", 
+       title = "B") + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12), 
+        axis.text.y = element_text(size = 12), 
+        axis.title = element_text(size = 14))
+```
+
+```{r}
+gridExtra::grid.arrange(fig1, fig2, nrow = 1)
+```
+

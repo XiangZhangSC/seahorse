@@ -1,0 +1,207 @@
+---
+title: "Codes for Figure 4"
+author: "Xiang Zhang"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(broom)
+library(ggplot2)
+library(forcats)
+library(rstan)
+library(tidybayes)
+source("./R/customized_functions.R")
+source("./R/OCRbayes.R")
+```
+
+# Load OCR-stats OCR data
+
+```{r}
+yepez.ocr <- read.delim("Yepez_sample_ocr_data.txt")
+yepez.meta <- read.delim("Yepez_sample_meta_data.txt")
+
+yepez.df <- yepez.ocr %>% 
+  as_tibble()
+```
+
+## Plates containing cell line 61818
+
+```{r}
+plates_contain_61818 <- find_host_plate(yepez.df, target_cell_line = "61818")
+
+plates_contain_61818
+```
+
+There are `r length(plates_contain_76065)` plates that contained cell line 76065. 
+
+## Missing data
+
+```{r}
+yepez.df %>% 
+  dplyr::filter(plate_id %in% plates_contain_61818, 
+                is.na(OCR))
+```
+
+```{r include=FALSE}
+plate_to_remove <- yepez.df %>% 
+  dplyr::filter(plate_id %in% plates_contain_61818, is.na(OCR)) %>% 
+  pull(plate_id)
+```
+
+
+Here, we can see that there is a missing OCR value for well H5 of plate `r plate_to_remove`. 
+Since dealing missing observation is not the focus of this study, I will remove all the data related this well from the analysis. 
+
+```{r}
+dat61818 <- yepez.df %>% 
+  dplyr::filter(plate_id %in% plates_contain_61818, 
+                Cell_line %in% c("NHDF", "61818"), 
+                !((plate_id == "20130930_1109") & (well == "G3")))
+```
+
+## How many wells (per group) are there in each plate
+
+```{r}
+dat61818 %>% 
+  dplyr::select(plate_id, well, Cell_line) %>% 
+  distinct() %>% 
+  group_by(plate_id, Cell_line) %>% 
+  summarize(number_of_wells = n()) %>% 
+  knitr::kable()
+```
+
+# First experiment 
+
+```{r}
+dat.lev0 <- dat61818 %>% 
+  dplyr::filter(plate_id %in% c("20130930_1109"))
+
+experiment_setup <- tag_experimental_setup(dat.lev0)
+
+dat_list_for_stan <- collect_data_for_stan(dat.lev0)
+
+scenario_1_plate <- sampling(my_stan_mod, data = dat_list_for_stan, chains = 4L, cores = 4L, control = list(max_treedepth = 10))
+
+respiration_1_plate <- convert_ocr_to_respiration(scenario_1_plate, experiment_setup)
+#respiration_1_plate$scenario <- "1 plate"
+respiration_1_plate$plate_id <- "20130930_1109"
+```
+
+# Repeat the experiment
+
+```{r}
+dat.lev0 <- dat61818 %>% 
+  dplyr::filter(plate_id %in% c("20140202_1849"))
+
+experiment_setup <- tag_experimental_setup(dat.lev0)
+
+dat_list_for_stan <- collect_data_for_stan(dat.lev0)
+
+scenario_2_plates <- sampling(my_stan_mod, data = dat_list_for_stan, chains = 4L, cores = 4L, control = list(max_treedepth = 10))
+
+respiration_2_plates <- convert_ocr_to_respiration(scenario_2_plates, experiment_setup)
+respiration_2_plates$plate_id <- "20140202_1849"
+```
+
+# Repeat the experiment third time
+
+```{r}
+dat.lev0 <- dat61818 %>% 
+  dplyr::filter(plate_id %in% c("20140205_1620"))
+
+experiment_setup <- tag_experimental_setup(dat.lev0)
+
+dat_list_for_stan <- collect_data_for_stan(dat.lev0)
+
+scenario_3_plates <- sampling(my_stan_mod, data = dat_list_for_stan, chains = 4L, cores = 4L, control = list(max_treedepth = 10, adapt_delta = 0.95))
+
+respiration_3_plates <- convert_ocr_to_respiration(scenario_3_plates, experiment_setup)
+respiration_3_plates$plate_id <- "20140205_1620"
+```
+
+```{r}
+dat.lev0 <- dat61818 %>% 
+  dplyr::filter(plate_id %in% c("20130930_1109", "20140202_1849", "20140205_1620"))
+
+experiment_setup <- tag_experimental_setup(dat.lev0)
+
+dat_list_for_stan <- collect_data_for_stan(dat.lev0)
+
+scenario_3_plates <- sampling(my_stan_mod, data = dat_list_for_stan, chains = 4L, cores = 4L, control = list(max_treedepth = 10, adapt_delta = 0.95))
+
+respiration_3_plates_combine <- convert_ocr_to_respiration(scenario_3_plates, experiment_setup)
+respiration_3_plates_combine$plate_id <- "3 Plates Combined"
+```
+
+```{r}
+post_respiration <- respiration_1_plate %>% 
+  bind_rows(respiration_2_plates) %>% 
+  bind_rows(respiration_3_plates) %>% 
+  #bind_rows(respiration_3_plates_combine) %>% 
+  dplyr::mutate(plate_id = factor(plate_id))
+
+dat61818 %>% 
+  dplyr::filter(plate_id == "20130930_1109", 
+                Cell_line == "NHDF", 
+                Interval == "Int4") %>% 
+  arrange(desc(OCR))
+
+fig1 <- ggplot(dat61818, aes(as.factor(time), OCR)) + 
+  geom_line(aes(group = well, color = factor(Cell_line, levels = c("NHDF", "61818"), 
+                                             labels = c("Control", "Patient")))) + 
+  scale_color_brewer("Cell line", palette = "Set2") + 
+  facet_wrap(~plate_id, ncol = 1) + 
+  labs(x = "Measurement cycle", y = "OCR (pmol/min)", 
+       title = "A") + 
+  theme_bw() + 
+  theme(legend.position = "bottom", 
+        axis.title = element_text(size = 14), 
+        axis.text = element_text(size = 10),
+        legend.text = element_text(size = 12), 
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12), 
+        panel.grid = element_blank())
+
+fig2 <- post_respiration %>% 
+  dplyr::filter(what == "Maximal respiration") %>% 
+  mutate(Cell_line = factor(Cell_line, labels = c("Control", "Patient"))) %>%  
+  ggplot(aes(val)) + 
+  geom_density(aes(color = Cell_line), size = 1) + 
+  scale_color_brewer("Cell line", palette = "Set2") + 
+  facet_wrap(~plate_id, ncol = 1, scales = "free_y") + 
+  labs(x = "Maximal respiration (pmol/min)", 
+       title = "B") + 
+  theme_bw() + 
+  theme(legend.position = "bottom", 
+        axis.title = element_text(size = 14), 
+        axis.text = element_text(size = 10),
+        legend.text = element_text(size = 12), 
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12), 
+        panel.grid = element_blank())
+
+fig3 <- respiration_3_plates_combine %>% 
+  dplyr::filter(what == "Maximal respiration") %>% 
+  mutate(Cell_line = factor(Cell_line, labels = c("Control", "Patient"))) %>%  
+  ggplot(aes(val)) + 
+  geom_density(aes(color = Cell_line), size = 1) + 
+  scale_color_brewer("Cell line", palette = "Set2") + 
+  facet_wrap(~plate_id, ncol = 1, scales = "free_y") + 
+  labs(x = "Maximal respiration (pmol/min)", 
+       title = "C") + 
+  theme_bw() + 
+  theme(legend.position = "bottom", 
+        axis.title = element_text(size = 14), 
+        axis.text = element_text(size = 10),
+        legend.text = element_text(size = 12), 
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12), 
+        panel.grid = element_blank())
+
+gridExtra::grid.arrange(fig1, fig2, fig3, nrow = 1)
+```

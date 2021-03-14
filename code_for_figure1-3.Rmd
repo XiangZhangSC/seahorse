@@ -1,0 +1,349 @@
+---
+title: "Code for Figure 1 to Figure 3"
+author: "Xiang Zhang"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(gridExtra)
+source("./R/customized_functions.R")
+source("./R/OCRbayes.R")
+```
+
+
+```{r}
+yepez.ocr <- read.delim("Yepez_sample_ocr_data.txt")
+yepez.meta <- read.delim("Yepez_sample_meta_data.txt")
+
+yepez.ocr %>% 
+  dplyr::select(plate_id, well) %>% 
+  distinct() %>% 
+  count(plate_id) %>% 
+  ggplot(aes(plate_id, n)) + 
+  geom_point() + 
+  labs(y = "Number of wells in the data set") + 
+  scale_x_discrete(labels = seq(1, length(unique(yepez.ocr$plate_id)))) + 
+  scale_y_continuous(breaks = c(25, 50, 75, 92)) + 
+  geom_hline(yintercept = 92, linetype = "dashed", color = "red") + 
+  theme_bw()
+
+number_wells_should_have <- 92 * length(unique(yepez.ocr$plate_id))
+number_wells_have <- yepez.ocr %>% 
+  dplyr::select(plate_id, well) %>% 
+  distinct() %>% 
+  count(plate_id) %>% 
+  pull(n)
+sum(number_wells_have)
+number_wells_should_have - sum(number_wells_have)
+
+target_fibroblasts <- yepez.meta %>% 
+  dplyr::filter(N != 1, 
+                Fibroblast.id != "NHDF") %>% 
+  dplyr::pull(Fibroblast.id)
+
+target_plates <- find_host_plate(yepez.ocr, target_fibroblasts)
+
+my_dat <- yepez.ocr %>% 
+  dplyr::filter(plate_id %in% target_plates)
+
+wells_missing_dat <- my_dat %>% 
+  dplyr::filter(is.na(OCR)) %>% 
+  dplyr::select(plate_id, well) %>% 
+  distinct()
+
+wells_imcomplete_cycles <- my_dat %>% 
+  anti_join(wells_missing_dat) %>% 
+  group_by(plate_id, well, Interval) %>% 
+  summarize(measurement_cycles = n()) %>% 
+  dplyr::filter(measurement_cycles != 3) %>% 
+  dplyr::select(plate_id, well) %>% 
+  distinct()
+
+my_dat_final <- my_dat %>% 
+  anti_join(wells_missing_dat) %>% 
+  anti_join(wells_imcomplete_cycles) %>% 
+  dplyr::filter(Cell_line %in% c("NHDF", target_fibroblasts))
+
+my_controls <- my_dat_final %>% 
+  dplyr::filter(Cell_line == "NHDF")
+
+my_cases <- my_dat_final %>% 
+  dplyr::filter(Cell_line != "NHDF") %>% 
+  group_by(Cell_line) %>% 
+  nest() %>% 
+  rename(fibroblast_id = Cell_line)
+```
+
+```{r}
+my_cases_final <- my_cases %>% 
+  mutate(control_dat = list(my_controls), 
+         mcmc_outcome = map2(data, control_dat, run_ocrbayes_per_case))
+
+#readr::write_rds(my_cases_final, "benchmark_study_stan_outputs.rds")
+my_cases_final <- readr::read_rds("benchmark_study_stan_outputs.rds")
+
+my_respiration <- my_cases_final %>% 
+  mutate(experimental_setup = map2(data, control_dat, experimental_setup_per_case), 
+         respiration = map2(mcmc_outcome, experimental_setup, convert_ocr_to_respiration))
+
+my_FCs <- my_respiration %>% 
+  dplyr::select(fibroblast_id, respiration) %>% 
+  ungroup() %>% 
+  unnest(respiration) %>% 
+  spread(Cell_line, val) %>% 
+  mutate(logFC = log2(patient / NHDF))
+
+my_stats <- my_FCs %>% 
+  dplyr::filter(what == "Maximal respiration") %>% 
+  group_by(fibroblast_id, what) %>% 
+  summarize(PEP = mean(logFC >= 0), # posterior error probability
+            average_logFC = mean(logFC)) %>% 
+  ungroup() %>% 
+  arrange(PEP)
+
+my_fdrs <- add_fdr(my_stats)
+
+my_stats$FDR <- my_fdrs
+
+my_stats <- my_stats %>% 
+  mutate(fibroblast_id = fct_inorder(fibroblast_id))
+
+my_colors <- c("Positive controls" = "red", "Negative controls" = "blue")
+fig2 <- ggplot(my_stats, aes(fibroblast_id, FDR)) + 
+  geom_point(size = 3) +
+  scale_y_log10() + 
+  geom_point(data = filter(my_stats, fibroblast_id %in% c("65126", "67375", "76065", "61818", "67333", "73804")), aes(color = "Positive controls"), size = 3) + 
+  geom_point(data = filter(my_stats, fibroblast_id %in% c("91410", "73901")), aes(color = "Negative controls"), size = 3) + 
+  scale_color_manual("", values = my_colors) + 
+  geom_hline(yintercept = 0.05, linetype = "dashed", color = "red") + 
+  labs(x = "Cell line, sorted by False Discovery Rate", 
+       y = "False Discovery Rate") + 
+  ggtitle("B") + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12), 
+        axis.text.y = element_text(size = 12),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14), 
+        legend.position = c(0.9,0.2), 
+        legend.background = element_rect(fill = "transparent"), 
+        legend.text = element_text(size = 12))
+
+fig1 <- ggplot(my_stats, aes(fibroblast_id, average_logFC)) + 
+  #geom_pointrange(aes(ymin = lower_logFC, ymax = upper_logFC)) + 
+  geom_point(size = 3) + 
+  geom_point(data = filter(my_stats, fibroblast_id %in% c("65126", "67375", "76065", "61818", "67333", "73804")), aes(color = "Positive controls"), size = 3) + 
+  geom_point(data = filter(my_stats, fibroblast_id %in% c("91410", "73901")), aes(color = "Negative controls"), size = 3) + 
+  scale_color_manual("", values = my_colors) + 
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") + 
+  labs(x = "Cell line, sorted by False Discovery Rate", 
+       y = "log2 (maximal respiration fold change) \n Patient / Control") + 
+  ggtitle("A") + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12), 
+        axis.text.y = element_text(size = 12),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14), 
+        legend.position = c(0.9,0.2), 
+        legend.background = element_rect(fill = "transparent"), 
+        legend.text = element_text(size = 12))
+
+grid.arrange(fig1, fig2, ncol = 1)
+```
+
+```{r}
+sketch_figure_1A <- function(target_dat, my_label, gene_label) {
+  ggplot(target_dat, aes(as.factor(time), OCR)) + 
+  geom_line(aes(group = well, color = factor(Cell_line, levels = c("NHDF", "patient"), 
+                                             labels = c("Control",gene_label)))) + 
+  scale_color_brewer("Cell line", palette = "Set2") + 
+  facet_wrap(~plate_id, ncol = 1) + 
+  labs(x = "Measurement cycle", 
+       y = "OCR (pmol/min)", 
+       title = my_label) + 
+  theme_classic() + 
+  theme(legend.position = "bottom", 
+        axis.title = element_text(size = 14), 
+        axis.text = element_text(size = 10),
+        legend.text = element_text(size = 12), 
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12))
+}
+
+
+sketch_figure_1B <- function(my_cases_final, my_label, which_output, gene_label) {
+  my_ocr1k <- spread_draws(my_cases_final$mcmc_outcome[[which_output]], mu_OCR_per_1k[id3])
+  my_setup <- tag_experimental_setup(target_dat)
+  my_ocr1k %>% 
+  mutate(id3 = as.character(id3)) %>% 
+  left_join(my_setup) %>% 
+  ggplot(aes(mu_OCR_per_1k)) + 
+  geom_density(aes(color = factor(Cell_line, levels = c("NHDF", "patient"), 
+                                  labels = c("Control", gene_label))), 
+               size = 1) + 
+  labs(x = "OCR per 1000 cells (pmol/min)", 
+       title = my_label) + 
+  facet_wrap(~Interval, ncol = 1, scales = "free_y") + 
+  scale_color_brewer("Cell line", palette = "Set2") + 
+  theme_classic() + 
+  theme(legend.position = "bottom", 
+        axis.title = element_text(size = 14), 
+        axis.text = element_text(size = 10),
+        legend.text = element_text(size = 12), 
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12))
+}
+
+sketch_figure_1C <- function(my_respiration, my_label, target_cell_line, gene_label) {
+  my_respiration %>% 
+  dplyr::select(fibroblast_id, respiration) %>% 
+  ungroup() %>% 
+  unnest(respiration) %>% 
+  dplyr::filter(fibroblast_id %in% target_cell_line) %>% 
+  mutate(Cell_line = factor(Cell_line, levels = c("NHDF", "patient"), labels = c("Control", gene_label))) %>%  
+  ggplot(aes(val)) + 
+  geom_density(aes(color = Cell_line), size = 1) + 
+  scale_color_brewer("Cell line", palette = "Set2") + 
+  facet_wrap(~what, ncol = 1, scales = "free_y") + 
+  theme_classic() + 
+  labs(x = "pmol/min", 
+       title = my_label) + 
+  theme(legend.position = "bottom", 
+        legend.title = element_text(size = 12), 
+        legend.text = element_text(size = 12), 
+        strip.text = element_text(size = 12), 
+        axis.text = element_text(size = 10))
+}
+
+sketch_figure_1D <- function(my_respiration, my_label, target_cell_line) {
+  my_respiration %>% 
+  dplyr::select(fibroblast_id, respiration) %>% 
+  ungroup() %>% 
+  unnest(respiration) %>% 
+  dplyr::filter(fibroblast_id == target_cell_line) %>% 
+  spread(Cell_line, val) %>% 
+  mutate(diff_in_respiration = log2(patient) - log2(NHDF)) %>% 
+  ggplot(aes(diff_in_respiration)) + 
+  geom_histogram(bins = 100, fill = "grey70") + 
+  facet_wrap(~what, ncol = 1, scales = "free") + 
+  geom_vline(xintercept = 0, linetype = "dashed", color = "red") + 
+  theme_classic() + 
+  labs(x = "log2(fold change)", 
+       y = "Frequency", 
+       title = my_label) + 
+  theme(legend.position = "bottom", 
+        legend.title = element_text(size = 12), 
+        legend.text = element_text(size = 12), 
+        strip.text = element_text(size = 12), 
+        axis.text = element_text(size = 10))
+}
+
+
+```
+
+```{r}
+target_cell_line <- "67375"
+gene_label <- "BOLA3"
+which_output <- which(my_cases_final$fibroblast_id == target_cell_line)
+target_dat <- collect_data_per_case(my_cases_final$data[[which_output]], my_cases_final$control_dat[[which_output]])
+
+fig1A <- sketch_figure_1A(target_dat, "A", gene_label = "BOLA3")
+fig1B <- sketch_figure_1B(my_cases_final, "B", which_output, gene_label = "BOLA3")
+fig1C <- sketch_figure_1C(my_respiration, "C", target_cell_line, gene_label = "BOLA3")
+fig1D <- sketch_figure_1D(my_respiration, "D", target_cell_line)
+
+target_cell_line <- "73387"
+gene_label <- "PET100"
+which_output <- which(my_cases_final$fibroblast_id == target_cell_line)
+target_dat <- collect_data_per_case(my_cases_final$data[[which_output]], my_cases_final$control_dat[[which_output]])
+
+fig1E <- sketch_figure_1A(target_dat, "E", gene_label = "PET100")
+fig1F <- sketch_figure_1B(my_cases_final, "F", which_output, gene_label = "PET100")
+fig1G <- sketch_figure_1C(my_respiration, "G", target_cell_line, gene_label = "PET100")
+fig1H <- sketch_figure_1D(my_respiration, "H", target_cell_line)
+
+gridExtra::grid.arrange(fig1A, fig1B, fig1C, fig1D, fig1E, fig1F, fig1G, fig1H, nrow = 2, ncol = 4)
+```
+
+# Figure 2
+
+```{r}
+fit76065 <- my_cases_final %>% 
+  dplyr::filter(fibroblast_id == "76065")
+
+dat.lev0 <- case_dat <- collect_data_per_case(fit76065$data[[1]], fit76065$control_dat[[1]])
+dat.lev0 <- sort_case_dat(dat.lev0)
+dat.lev1 <- aggregate_measurements(dat.lev0)
+dat.lev2 <- aggregate_wells(dat.lev1)
+dat.lev3 <- aggregate_plates(dat.lev2)
+
+#sigma_well_76065 <- spread_draws(fit76065$mcmc_outcome[[1]], sigma_well[id2])
+sigma_well_76065 <- tidy(fit76065$mcmc_outcome[[1]], "sigma_well", conf.int = TRUE, conf.method = "HPDinterval") %>% 
+  separate(term, into = c("what", "id2", "nothing"), sep = "\\[|\\]") %>% 
+  mutate(nothing = NULL) %>% 
+  left_join(dat.lev2) %>% 
+  dplyr::select(-id2, -std.error)
+#sigma_well_76065 <- sigma_well_76065 %>% 
+#  mutate(id2 = as.character(id2)) %>% 
+#  left_join(dat.lev2) %>% 
+#  ungroup() %>% 
+#  dplyr::select(-id2)
+
+#sigma_cycle_76065 <- spread_draws(fit76065$mcmc_outcome[[1]], sdlog_OCR[id4])
+dat.lev4 <- plate_interval(dat.lev0)
+sigma_cycle_76065 <- tidy(fit76065$mcmc_outcome[[1]], "sdlog_OCR", conf.int = TRUE, conf.method = "HPDinterval") %>% 
+  separate(term, into = c("what", "id4", "nothing"), sep = "\\[|\\]") %>% 
+  mutate(nothing = NULL) %>% 
+  left_join(dat.lev4) %>% 
+  dplyr::select(-id4, -std.error)
+#sigma_cycle_76065 <- sigma_cycle_76065 %>% 
+#  mutate(id4 = as.character(id4)) %>% 
+#  left_join(dat.lev4) %>% 
+#  dplyr::select(-id4)
+
+#sigma_plate_76065 <- spread_draws(fit76065$mcmc_outcome[[1]], sigma_plate[id3])
+sigma_plate_76065 <- tidy(fit76065$mcmc_outcome[[1]], "sigma_plate", conf.int = TRUE, conf.method = "HPDinterval") %>% 
+  separate(term, into = c("what", "id3", "nothing"), sep = "\\[|\\]") %>% 
+  mutate(nothing = NULL) %>% 
+  left_join(dat.lev3) %>% 
+  dplyr::select(-id3, -std.error)
+#sigma_plate_76065 <- sigma_plate_76065 %>% 
+#  mutate(id3 = as.character(id3)) %>% 
+#  left_join(dat.lev3) %>% 
+#  ungroup() %>% 
+#  dplyr::select(-id3)
+
+cell_int_plate <- sigma_well_76065 %>% 
+  dplyr::select(Cell_line:plate_id)
+
+sigma_cycle_76065 <- cell_int_plate %>% 
+  left_join(sigma_cycle_76065)
+
+sigma_plate_76065 <- cell_int_plate %>% 
+  left_join(sigma_plate_76065)
+
+sigma_well_76065 %>% 
+  bind_rows(sigma_plate_76065) %>% 
+  bind_rows(sigma_cycle_76065) %>% 
+  mutate(what = factor(what, levels = c("sdlog_OCR", "sigma_well", "sigma_plate"), 
+                       labels = c("Between measurement cycle", "Between well", "Between plate")), 
+         Cell_line = factor(Cell_line, labels = c("Control", "NSUN3"))) %>% 
+  ggplot(aes(plate_id, estimate)) + 
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high, color = what), position = position_dodge(width = 0.5, )) + 
+  facet_grid(Interval~Cell_line) + 
+  scale_color_brewer("", palette = "Set1") + 
+  labs(x = "Plate ID", y = "Technical variation (log scale)") + 
+  theme_bw() + 
+  theme(legend.position = "top", 
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 10), 
+        axis.title = element_text(size = 12),
+        panel.grid = element_blank(), 
+        legend.text = element_text(size = 12), 
+        strip.text = element_text(size = 12))
+
+
+```
