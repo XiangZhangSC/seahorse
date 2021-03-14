@@ -1,0 +1,224 @@
+---
+title: "Code for prior distribution estimation"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(ggplot2)
+source("./R/customized_functions.R")
+```
+
+# Load OCR-stats OCR data
+
+```{r}
+yepez.ocr <- read.delim("Yepez_sample_ocr_data.txt")
+yepez.meta <- read.delim("Yepez_sample_meta_data.txt")
+```
+
+# Prior distributions
+
+In the OCR-stats paper, there are in total 203 fibroblasts, in which 176 fibroblasts were measured in a single plate and all these cases have no known genetic defects. 
+I will use these cases for estimating prior distributions. 
+
+```{r}
+orphan_experiments <- yepez.meta %>% 
+  dplyr::filter(N == 1) %>% 
+  dplyr::pull(Fibroblast.id)
+
+# find the corresponding plates
+my_plates <- find_host_plate(yepez.ocr, target_cell_line = orphan_experiments) %>% 
+  unique()
+```
+
+Next, find the data of the corresponding plates and keep the NHDF and target cell lines data
+
+```{r}
+my_dat <- yepez.ocr %>% 
+  dplyr::filter(plate_id %in% my_plates, 
+                Cell_line %in% c("NHDF", orphan_experiments))
+
+my_dat
+```
+
+Procedures:
+1. Values of three repeated measurement cycles need to be aggregated into one value
+2. Replicate wells need to be aggregated and cell numbers need to be accounted
+3. Difference in OCR per 1K cell between a orphan cell line and NHDF
+4. Perform 1 - 3 in all 78 plates, separately
+
+```{r}
+# remove wells containing NA
+wells_contain_NA <- my_dat %>% 
+  dplyr::filter(is.na(OCR)) %>% 
+  dplyr::select(plate_id, well) %>% 
+  unique()
+
+my_dat_filtered <- my_dat %>% 
+  anti_join(wells_contain_NA)
+
+wells_imcomplete_cycles <- my_dat_filtered %>% 
+  group_by(plate_id, well, Interval) %>% 
+  summarize(measurement_cycles = n()) %>% 
+  dplyr::filter(measurement_cycles != 3) %>% 
+  dplyr::select(plate_id, well) %>% 
+  distinct()
+
+my_dat_final <- my_dat_filtered %>% 
+  anti_join(wells_imcomplete_cycles)
+```
+
+```{r}
+lv0 <- my_dat_final 
+  
+lv1 <- lv0 %>% 
+  group_by(plate_id, Cell_line, well, cell_n, Interval) %>% 
+  nest() %>% 
+  mutate(lnmod = map(data, ~true_signal_measurement_error(.x$OCR))) %>% 
+  tidyr::unnest(lnmod) %>% 
+  dplyr::select(-data, -std.error) %>% 
+  spread(term, estimate) %>% 
+  ungroup()
+```
+
+First prior distribution I need is for sdlog. 
+
+```{r}
+ggplot(lv1, aes(sdlog)) + 
+  geom_density(aes(color = Interval)) + 
+  scale_color_brewer(palette = "Dark2")
+
+MASS::fitdistr(lv1$sdlog, densfun = "lognormal")
+```
+
+```{r}
+lv2 <- lv1 %>% 
+  dplyr::select(-sdlog) %>% 
+  mutate(ocr_per_1k = exp(meanlog)/cell_n * 1000) %>% 
+  group_by(plate_id, Cell_line, Interval) %>% 
+  summarize(ocr_per_1k_true = mean(ocr_per_1k), 
+            ocr_per_1k_error_log = sd(log(ocr_per_1k)))
+```
+
+The second prior distribution I need is for sigma_well
+
+```{r}
+MASS::fitdistr(lv2$ocr_per_1k_error_log, densfun = "lognormal")
+```
+
+
+```{r}
+lv3 <- lv2 %>% 
+  dplyr::filter(Cell_line == "NHDF") %>% 
+  group_by(Cell_line, Interval) %>% 
+  summarise(mu_ocr_per_1k_true = mean(ocr_per_1k_true), 
+            sd_ocr_per_1k_true_log = sd(log(ocr_per_1k_true)))
+
+lv3
+```
+
+The third prior distribution I need is for sigma_plate
+
+```{r}
+MASS::fitdistr(lv3$sd_ocr_per_1k_true_log, densfun = "lognormal")
+```
+
+The fourth prior distribution I need is OCR_per_1k[1] and OCR_per_1k[5]
+
+```{r}
+nhdf_basal <- lv2 %>% 
+  dplyr::select(-ocr_per_1k_error_log) %>% 
+  dplyr::filter(Cell_line == "NHDF", Interval == "Int1") %>% 
+  spread(Interval, ocr_per_1k_true) %>% 
+  dplyr::pull(Int1)
+
+nhdf_basal
+
+MASS::fitdistr(nhdf_basal, densfun = "lognormal")
+
+patient_basal <- lv2 %>% 
+  dplyr::select(-ocr_per_1k_error_log) %>% 
+  dplyr::filter(Cell_line != "NHDF", Interval == "Int1") %>% 
+  spread(Interval, ocr_per_1k_true) %>% 
+  dplyr::pull(Int1)
+
+patient_basal
+
+MASS::fitdistr(patient_basal, densfun = "lognormal")
+```
+
+The fifth prior distribution I need is for OCR_per_1k[2] and OCR_per_1k[6]
+
+```{r}
+nhdf_oligomycin <- lv2 %>% 
+  dplyr::select(-ocr_per_1k_error_log) %>% 
+  dplyr::filter(Cell_line == "NHDF", Interval == "Int2") %>% 
+  spread(Interval, ocr_per_1k_true) %>% 
+  dplyr::pull(Int2)
+
+nhdf_oligomycin
+
+MASS::fitdistr(nhdf_oligomycin, densfun = "lognormal")
+
+patient_oligomycin <- lv2 %>% 
+  dplyr::select(-ocr_per_1k_error_log) %>% 
+  dplyr::filter(Cell_line != "NHDF", Interval == "Int2") %>% 
+  spread(Interval, ocr_per_1k_true) %>% 
+  dplyr::pull(Int2)
+
+patient_oligomycin
+
+MASS::fitdistr(patient_oligomycin, densfun = "lognormal")
+```
+
+The sixth prior distribution I need is for OCR_per_1k[3] and OCR_per_1k[7]
+
+```{r}
+nhdf_fccp <- lv2 %>% 
+  dplyr::filter(Cell_line == "NHDF", Interval == "Int3") %>% 
+  dplyr::select(-ocr_per_1k_error_log) %>% 
+  spread(Interval, ocr_per_1k_true) %>% 
+  dplyr::pull(Int3)
+
+nhdf_fccp
+
+MASS::fitdistr(nhdf_fccp, densfun = "lognormal")
+
+patient_fccp <- lv2 %>% 
+  dplyr::filter(Cell_line != "NHDF", Interval == "Int3") %>% 
+  dplyr::select(-ocr_per_1k_error_log) %>% 
+  spread(Interval, ocr_per_1k_true) %>% 
+  dplyr::pull(Int3)
+
+patient_fccp
+
+MASS::fitdistr(patient_fccp, densfun = "lognormal")
+```
+
+The sixth prior distribution I need is for OCR_per_1k[4] and OCR_per_1k[8]
+
+```{r}
+nhdf_rotenone <- lv2 %>% 
+  dplyr::filter(Cell_line == "NHDF", Interval == "Int4") %>% 
+  dplyr::select(-ocr_per_1k_error_log) %>% 
+  spread(Interval, ocr_per_1k_true) %>% 
+  dplyr::pull(Int4)
+
+nhdf_rotenone
+
+MASS::fitdistr(nhdf_rotenone, densfun = "lognormal")
+
+patient_rotenone <- lv2 %>% 
+  dplyr::filter(Cell_line != "NHDF", Interval == "Int4") %>% 
+  dplyr::select(-ocr_per_1k_error_log) %>% 
+  spread(Interval, ocr_per_1k_true) %>% 
+  dplyr::pull(Int4)
+
+patient_rotenone
+
+MASS::fitdistr(patient_rotenone, densfun = "lognormal")
+```
