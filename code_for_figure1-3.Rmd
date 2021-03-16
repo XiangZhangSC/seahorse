@@ -256,6 +256,14 @@ fig1B <- sketch_figure_1B(my_cases_final, "B", which_output, gene_label = "BOLA3
 fig1C <- sketch_figure_1C(my_respiration, "C", target_cell_line, gene_label = "BOLA3")
 fig1D <- sketch_figure_1D(my_respiration, "D", target_cell_line)
 
+my_respiration %>% 
+  dplyr::select(fibroblast_id, respiration) %>% 
+  ungroup() %>% 
+  unnest(respiration) %>% 
+  dplyr::filter(fibroblast_id == target_cell_line) %>% 
+  spread(Cell_line, val) %>% 
+  mutate(diff_in_respiration = log2(patient) - log2(NHDF)) %>% group_by(what) %>% summarize(post_mean = mean(diff_in_respiration), low_mean = quantile(diff_in_respiration, 0.025), high_mean = quantile(diff_in_respiration, 0.975))
+
 target_cell_line <- "73387"
 gene_label <- "PET100"
 which_output <- which(my_cases_final$fibroblast_id == target_cell_line)
@@ -265,6 +273,14 @@ fig1E <- sketch_figure_1A(target_dat, "E", gene_label = "PET100")
 fig1F <- sketch_figure_1B(my_cases_final, "F", which_output, gene_label = "PET100")
 fig1G <- sketch_figure_1C(my_respiration, "G", target_cell_line, gene_label = "PET100")
 fig1H <- sketch_figure_1D(my_respiration, "H", target_cell_line)
+
+my_respiration %>% 
+  dplyr::select(fibroblast_id, respiration) %>% 
+  ungroup() %>% 
+  unnest(respiration) %>% 
+  dplyr::filter(fibroblast_id == target_cell_line) %>% 
+  spread(Cell_line, val) %>% 
+  mutate(diff_in_respiration = log2(patient) - log2(NHDF)) %>% group_by(what) %>% summarize(post_mean = mean(diff_in_respiration), low_mean = quantile(diff_in_respiration, 0.025), high_mean = quantile(diff_in_respiration, 0.975))
 
 gridExtra::grid.arrange(fig1A, fig1B, fig1C, fig1D, fig1E, fig1F, fig1G, fig1H, nrow = 2, ncol = 4)
 ```
