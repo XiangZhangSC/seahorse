@@ -90,6 +90,14 @@ scenario_1_plate <- sampling(my_stan_mod, data = dat_list_for_stan, chains = 4L,
 respiration_1_plate <- convert_ocr_to_respiration(scenario_1_plate, experiment_setup)
 #respiration_1_plate$scenario <- "1 plate"
 respiration_1_plate$plate_id <- "20130930_1109"
+
+respiration_1_plate %>% 
+  spread(Cell_line, val) %>% 
+  dplyr::mutate(diff_in_respir = log2(`61818`) - log2(NHDF)) %>% 
+  dplyr::group_by(what) %>% 
+  summarize(post_mean = mean(diff_in_respir), 
+            low_mean = quantile(diff_in_respir, probs = 0.025), 
+            high_mean = quantile(diff_in_respir, probs = 0.975))
 ```
 
 # Repeat the experiment
@@ -106,6 +114,14 @@ scenario_2_plates <- sampling(my_stan_mod, data = dat_list_for_stan, chains = 4L
 
 respiration_2_plates <- convert_ocr_to_respiration(scenario_2_plates, experiment_setup)
 respiration_2_plates$plate_id <- "20140202_1849"
+
+respiration_2_plates %>% 
+  spread(Cell_line, val) %>% 
+  dplyr::mutate(diff_in_respir = log2(`61818`) - log2(NHDF)) %>% 
+  dplyr::group_by(what) %>% 
+  summarize(post_mean = mean(diff_in_respir), 
+            low_mean = quantile(diff_in_respir, probs = 0.025), 
+            high_mean = quantile(diff_in_respir, probs = 0.975))
 ```
 
 # Repeat the experiment third time
@@ -122,6 +138,14 @@ scenario_3_plates <- sampling(my_stan_mod, data = dat_list_for_stan, chains = 4L
 
 respiration_3_plates <- convert_ocr_to_respiration(scenario_3_plates, experiment_setup)
 respiration_3_plates$plate_id <- "20140205_1620"
+
+respiration_3_plates %>% 
+  spread(Cell_line, val) %>% 
+  dplyr::mutate(diff_in_respir = log2(`61818`) - log2(NHDF)) %>% 
+  dplyr::group_by(what) %>% 
+  summarize(post_mean = mean(diff_in_respir), 
+            low_mean = quantile(diff_in_respir, probs = 0.025), 
+            high_mean = quantile(diff_in_respir, probs = 0.975))
 ```
 
 ```{r}
@@ -136,6 +160,14 @@ scenario_3_plates <- sampling(my_stan_mod, data = dat_list_for_stan, chains = 4L
 
 respiration_3_plates_combine <- convert_ocr_to_respiration(scenario_3_plates, experiment_setup)
 respiration_3_plates_combine$plate_id <- "3 Plates Combined"
+
+respiration_3_plates_combine %>% 
+  spread(Cell_line, val) %>% 
+  dplyr::mutate(diff_in_respir = log2(`61818`) - log2(NHDF)) %>% 
+  dplyr::group_by(what) %>% 
+  summarize(post_mean = mean(diff_in_respir), 
+            low_mean = quantile(diff_in_respir, probs = 0.025), 
+            high_mean = quantile(diff_in_respir, probs = 0.975))
 ```
 
 ```{r}
