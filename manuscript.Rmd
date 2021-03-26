@@ -1,7 +1,7 @@
 ---
 output: word_document
 bibliography: /home/xiang/Documents/Bibliography/seahorse.bib
-csl: scientific-reports.csl
+csl: bmc-bioinformatics.csl
 ---
 
 OCRbayes: A Bayesian hierarchical modeling framework for Seahorse extracellular flux oxygen consumption rate data analysis
@@ -16,14 +16,18 @@ Vincent C. J. de Boer^2,\*^
 
 # Abstract
 
-Mitochondrial dysfunction is involved in many complex diseases. 
+Background: Mitochondrial dysfunction is involved in many complex diseases. 
 Efficient and accurate evaluation of mitochondrial functionality is crucial for understanding pathology as well as facilitating novel therapeutic developments. 
 As a popular platform, Seahorse extracellular flux (XF) analyzer is widely used for measuring mitochondrial oxygen consumption rate (OCR) in living cells. 
 A hidden feature of Seahorse XF OCR data is that it has a complex data structure, caused by nesting and crossing between measurement cycles, wells and plates. 
 Surprisingly, statistical analysis of Seahorse XF data has not received sufficient attention, and current methods completely ignore the complex data structure, impairing the robustness of statistical inference. 
-To rigorously incorporate the complex structure into data analysis, here we developed a Bayesian hierarchical modeling framework, OCRbayes, and demonstrated its applicability based on analysis of published data sets. 
-We showed that OCRbayes can analyze Seahorse XF OCR experimental data derived from either single or multiple plates. 
+
+Results: To rigorously incorporate the complex structure into data analysis, here we developed a Bayesian hierarchical modeling framework, OCRbayes, and demonstrated its applicability based on analysis of published data sets. 
+
+Conclusions: We showed that OCRbayes can analyze Seahorse XF OCR experimental data derived from either single or multiple plates. 
 Moreover, OCRbayes has potential to be used for diagnosing patients with mitochondrial diseases. 
+
+Keywords: Oxygen consumption rate; mitochondria; Bayesian; hierarchical modeling; seahorse extracellular flux
 
 # Introduction
 
@@ -309,20 +313,36 @@ One limitation of this study is that OCRbayes currently focused on human fibrobl
 This is because our model development was restricted to the limited publicly available Seahorse OCR data sets. 
 In the future, OCRbayes can be extended to other cell types when more experimental data are collected and combined to establish databases with experimental OCR data. 
 
-# Data Availability
+## Declarations
 
-The dataset supporting the conclusions of this article is included within the article and its additional file.
+# Ethics approval and consent to participate
 
-# Author contributions
+Not applicable
+
+## Consent for publication
+
+## Availability of data and materials
+
+The datasets analysed during the current study are available in the Github repository, https://github.com/XiangZhangSC/seahorse.
+
+## Competing interests
+
+The authors declare that they have no competing interests
+
+## Funding
+
+Not applicable
+
+## Author's contributions
 
 XZ developed the OCRbayes and wrote the manuscript. 
 TY and JK contributed to the conceptualization of the project and edited the manuscript. 
 VB supervised the project and edited the manuscript. 
 All authors read and approved the final manuscript.
 
-# Competing interests
+## Acknowledgements
 
-The authors declare that they have no competing interests
+Not applicable
 
 # Figure legends
 
